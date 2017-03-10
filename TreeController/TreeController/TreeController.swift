@@ -73,22 +73,37 @@ open class TreeNode: NSObject {
 		super.init()
 	}
 	
-	private var oldRange: CountableRange<Int>?
-	public var children: [TreeNode]? {
-		willSet {
-			if !isLoading, treeController != nil, let index = flatIndex {
-				oldRange = index..<(index + size)
+	private var _children: [TreeNode]?
+	public var children: [TreeNode] {
+		get {
+			if _children == nil {
+				loadChildren()
+				if _children == nil {
+					_children = []
+				}
 			}
+			return _children!
 		}
-		didSet {
-			for child in children ?? [] {
+		
+		set {
+			let from = _children
+			let to = newValue
+			
+			if from != nil, let treeController = treeController, let index = flatIndex {
+				let size = self.size
+				_children = to
+				let range = index..<(index + size)
+				treeController.replaceNodes(at: range, with: flattened)
+			}
+			else {
+				_children = to
+			}
+			for child in from ?? [] {
+				child.parent = nil
+			}
+			for child in to {
 				child.parent = self
 			}
-			if isLoaded, let treeController = treeController, let oldRange = oldRange {
-				treeController.replaceNodes(at: oldRange, with: flattened)
-			}
-			oldRange = nil
-			isLoaded = true
 		}
 	}
 	
@@ -109,9 +124,9 @@ open class TreeNode: NSObject {
 	private var removeRange: CountableRange<Int>?
 	open var isExpanded: Bool = true {
 		willSet {
+			guard treeController != nil else {return}
 			guard isExpanded else {return}
 			guard newValue != isExpanded else {return}
-			guard let treeController = treeController else {return}
 			guard let flatIndex = flatIndex else {return}
 			
 			var range = flatIndex..<(flatIndex + size)
@@ -154,8 +169,6 @@ open class TreeNode: NSObject {
 		
 	}
 	
-	private var isLoaded: Bool = false
-	private var isLoading: Bool = false
 	private weak var _treeController: TreeController?
 	fileprivate var isViewable: Bool {
 		return cellIdentifier != nil
@@ -163,17 +176,11 @@ open class TreeNode: NSObject {
 	fileprivate var estimatedHeight: CGFloat?
 	
 	fileprivate var flatIndex: Int?
+	
 	fileprivate var size: Int {
 		var size = isViewable ? 1 : 0
 		if !isExpandable || isExpanded || !isViewable {
-			if !isLoaded {
-				isLoading = true
-				loadChildren()
-				isLoading = false
-				isLoaded = true
-			}
-			
-			for child in children ?? [] {
+			for child in children {
 				size += child.size
 			}
 		}
@@ -183,19 +190,13 @@ open class TreeNode: NSObject {
 	fileprivate var flattened: [TreeNode] {
 		
 		if !isExpandable || isExpanded || !isViewable {
-			if !isLoaded {
-				isLoading = true
-				loadChildren()
-				isLoading = false
-				isLoaded = true
-			}
 			
 			var array = [TreeNode]()
 			if isViewable {
 				array.append(self)
 			}
 			
-			for child in children ?? [] {
+			for child in children {
 				array.append(contentsOf: child.flattened)
 			}
 			
@@ -448,7 +449,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			}
 			
 			if !node.isExpandable || node.isExpanded || !node.isViewable {
-				for child in node.children ?? [] {
+				for child in node.children {
 					update(child)
 				}
 			}
@@ -477,10 +478,10 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	override func loadChildren() {
 		try? resultsController.performFetch()
 		if let sectionNode = self.sectionNode {
-			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)}
+			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
 		}
 		else {
-			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)}
+			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
 		}
 	}
 	
@@ -492,9 +493,9 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		guard let sectionNode = self.sectionNode else {return}
 		switch type {
 		case .insert:
-			children?.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
+			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
 		case .delete:
-			children?.remove(at: sectionIndex)
+			children.remove(at: sectionIndex)
 		default:
 			break
 		}
@@ -504,14 +505,14 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		guard self.sectionNode == nil else {return}
 		switch type {
 		case .insert:
-			children?.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
+			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
 		case .delete:
-			children?.remove(at: indexPath!.row)
+			children.remove(at: indexPath!.row)
 		case .move:
-			children?.remove(at: indexPath!.row)
-			children?.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
+			children.remove(at: indexPath!.row)
+			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
 		case .update:
-			children?[newIndexPath!.row] = objectNode.init(object: anObject as! ResultType)
+			children[newIndexPath!.row] = objectNode.init(object: anObject as! ResultType)
 		}
 	}
 	
@@ -531,7 +532,7 @@ class FetchedResultsSectionNode<ResultType: NSFetchRequestResult> : TreeNode {
 	}
 	
 	override func loadChildren() {
-		children = section.objects?.flatMap {objectNode.init(object: $0 as! ResultType)}
+		children = section.objects?.flatMap {objectNode.init(object: $0 as! ResultType)} ?? []
 	}
 	
 	override var hashValue: Int {

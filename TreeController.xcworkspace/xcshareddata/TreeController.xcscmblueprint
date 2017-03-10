@@ -1,0 +1,30 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "0CFE9E88F22EAA7CB8181BCF8804EC4A2A59AFE8",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "0CFE9E88F22EAA7CB8181BCF8804EC4A2A59AFE8" : 9223372036854775807,
+    "CBD3C72D1EC244FEC895CDE83582355773BC1B4F" : 9223372036854775807
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "FE960900-AE18-45BF-A1F6-86612F59128C",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "0CFE9E88F22EAA7CB8181BCF8804EC4A2A59AFE8" : "TreeController\/",
+    "CBD3C72D1EC244FEC895CDE83582355773BC1B4F" : ".."
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "TreeController",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "TreeController.xcworkspace",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/mrdepth\/TreeController.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "0CFE9E88F22EAA7CB8181BCF8804EC4A2A59AFE8"
+    },
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "github.com:mrdepth\/EVEUniverse.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "CBD3C72D1EC244FEC895CDE83582355773BC1B4F"
+    }
+  ]
+}
