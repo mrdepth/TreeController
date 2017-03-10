@@ -73,7 +73,7 @@ class CityNode: BaseNode {
 	
 }
 
-class ViewController: UITableViewController {
+class ViewController: UITableViewController, TreeControllerDelegate {
 
 	@IBOutlet var treeController: TreeController!
 	override func viewDidLoad() {
@@ -85,6 +85,11 @@ class ViewController: UITableViewController {
 		let content = TreeNode()
 		content.children = countries
 		treeController.content = content
+		treeController.delegate = self
+	}
+	
+	func treeController(_ treeController: TreeController, didSelectCellWithNode node: TreeNode) {
+		treeController.deselectCell(for: node, animated: true)
 	}
 
 }
