@@ -392,14 +392,14 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		flattened.removeSubrange(range)
 		updateIndexes()
 		
-		tableView.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .automatic)
+		tableView.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
 	}
 	
 	fileprivate func insertNodes(_ nodes: [TreeNode], at index: Int) {
 		flattened.insert(contentsOf: nodes, at: index)
 		updateIndexes()
 		let range = index..<(index + nodes.count)
-		tableView.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .automatic)
+		tableView.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
 	}
 	
 	fileprivate func replaceNodes(at range: CountableRange<Int>, with nodes: [TreeNode]) {
@@ -416,9 +416,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		nodes.changes(from: from) { (old, new, type) in
 			switch type {
 			case .insert:
-				tableView.insertRows(at: [IndexPath(row: start + new!, section: 0)], with: .automatic)
+				tableView.insertRows(at: [IndexPath(row: start + new!, section: 0)], with: .fade)
 			case .delete:
-				tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: .automatic)
+				tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: .fade)
 			case .move:
 				tableView.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: new!, section: 0))
 			case .update:
