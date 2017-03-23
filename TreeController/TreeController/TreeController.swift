@@ -88,6 +88,12 @@ open class TreeNode: NSObject {
 		set {
 			let from = _children
 			let to = newValue
+			for a in to {
+				if let i = from?.index(of: a), let b = from?[i] {
+					a.isExpanded = b.isExpanded
+					a.estimatedHeight = b.estimatedHeight
+				}
+			}
 			
 			if from != nil, let treeController = treeController, let index = flatIndex {
 				let size = self.size
