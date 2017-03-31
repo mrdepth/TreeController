@@ -478,7 +478,10 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 				case .reload:
 					tableView.reloadRows(at: [indexPath], with: .fade)
 				case .reconfigure:
-					tableView.reloadRows(at: [indexPath], with: .none)
+					if let cell = tableView.cellForRow(at: indexPath) {
+						b.configure(cell: cell)
+					}
+					//tableView.reloadRows(at: [indexPath], with: .none)
 				default:
 					break
 				}
