@@ -23,6 +23,7 @@ public enum TransitionStyle {
 }
 
 extension Array where Element: TreeNode {
+	
 	func changes(from: Array<Element>, handler: (_ oldIndex: Index?, _ newIndex: Index?, _ changeType: ChangeType) -> Void) {
 		let to = self
 		var arr = from
@@ -34,19 +35,23 @@ extension Array where Element: TreeNode {
 			}
 		}
 		
+		var moves = Set<Int>()
+		
 		for i in indices {
+			guard !moves.contains(i) else {continue}
 			let obj = to[i]
 			if let j = arr[i..<arr.count].index(of: obj) {
 				let k = from.index(of: obj)!
 				
 				if j != i {
 					handler(k, i, .move)
+					moves.insert(k)
 				}
 				let obj2 = from[k]
 				if obj !== obj2 {
 					handler(k, i, .update)
 				}
-
+				
 			}
 			else {
 				handler(nil, i, .insert)
@@ -373,9 +378,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
-		if node.isExpandable {
-			node.isExpanded = !node.isExpanded
-		}
+//		if node.isExpandable {
+//			node.isExpanded = !node.isExpanded
+//		}
 		node._isSelected = false
 		delegate?.treeController?(self, didDeselectCellWithNode: node)
 	}
