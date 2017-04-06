@@ -28,6 +28,61 @@ extension Array where Element: TreeNode {
 		let to = self
 		var arr = from
 		
+		var removed = IndexSet()
+		var inserted = IndexSet()
+		var updated = [(Int, Int)]()
+		var moved = [(Int, Int)]()
+		
+		var j = 0
+		for (i, v) in from.enumerated() {
+			if to.count <= j || to[j] != v {
+				arr.remove(at: i - removed.count)
+				removed.insert(i)
+			}
+			else {
+				updated.append((i, j))
+				j += 1
+			}
+		}
+		
+		for (i, v) in to.enumerated() {
+			if arr.count <= i || arr[i] != v {
+				inserted.insert(i)
+				arr.insert(v, at: i)
+			}
+		}
+		
+		for i in removed {
+			let obj = from[i]
+			for j in inserted {
+				if obj == to[j] {
+					removed.remove(i)
+					inserted.remove(j)
+					if i != j {
+						moved.append((i, j))
+					}
+					else {
+						updated.append((i, j))
+					}
+				}
+			}
+		}
+		if !removed.isEmpty {
+			removed.reversed().forEach {handler($0, nil, .delete)}
+		}
+		if !inserted.isEmpty {
+			inserted.forEach {handler(nil, $0, .insert)}
+		}
+		if !moved.isEmpty {
+			moved.reversed().forEach {handler($0.0, $0.1, .move)}
+		}
+		if !updated.isEmpty {
+			updated.forEach {handler($0.0, $0.1, .update)}
+		}
+		
+		/*let to = self
+		var arr = from
+		
 		for (i, v) in from.enumerated().reversed() {
 			if to.index(of: v) == nil {
 				handler(i, nil, .delete)
@@ -57,7 +112,7 @@ extension Array where Element: TreeNode {
 				handler(nil, i, .insert)
 				arr.insert(obj, at: i)
 			}
-		}
+		}*/
 	}
 	
 	mutating func remove(at: IndexSet) {
@@ -179,11 +234,12 @@ open class TreeNode: NSObject {
 			return _isSelected
 		}
 		set {
+			_isSelected = newValue
 			if newValue {
-				treeController?.deselectCell(for: self, animated: true)
+				treeController?.selectCell(for: self, animated: true, scrollPosition: .none)
 			}
 			else {
-				treeController?.selectCell(for: self, animated: true, scrollPosition: .none)
+				treeController?.deselectCell(for: self, animated: true)
 			}
 		}
 	}
@@ -378,9 +434,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
-//		if node.isExpandable {
-//			node.isExpanded = !node.isExpanded
-//		}
+		if node.isExpandable && ((tableView.allowsMultipleSelection && !tableView.isEditing) || (tableView.allowsMultipleSelectionDuringEditing && tableView.isEditing))  {
+			node.isExpanded = !node.isExpanded
+		}
 		node._isSelected = false
 		delegate?.treeController?(self, didDeselectCellWithNode: node)
 	}
