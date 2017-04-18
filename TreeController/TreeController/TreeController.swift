@@ -298,7 +298,7 @@ open class TreeNode: NSObject {
 	}
 }
 
-@objc public protocol TreeControllerDelegate {
+@objc public protocol TreeControllerDelegate: UIScrollViewDelegate {
 	@objc optional func treeController(_ treeController: TreeController, configureCell cell: UITableViewCell, withNode node: TreeNode) -> Void
 	@objc optional func treeController(_ treeController: TreeController, editActionsForNode node: TreeNode) -> [UITableViewRowAction]?
 	@objc optional func treeController(_ treeController: TreeController, editingStyleForNode node: TreeNode) -> UITableViewCellEditingStyle
@@ -320,9 +320,10 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public var content: TreeNode? {
 		didSet {
+			oldValue?.treeController = nil
 			content?.treeController = self
 			let to = content?.flattened
-			if oldValue == nil {
+			if oldValue == nil || !UIView.areAnimationsEnabled {
 				flattened = to ?? []
 				updateIndexes()
 				tableView.reloadData()
@@ -476,9 +477,64 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		node.estimatedHeight = cell.bounds.size.height
 	}
 	
+	//MARK: - UIScrollViewDelegate
+	
+	public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+		delegate?.scrollViewDidScroll?(scrollView)
+	}
+	
+	public func scrollViewDidZoom(_ scrollView: UIScrollView) {
+		delegate?.scrollViewDidZoom?(scrollView)
+	}
 	
 	
-	//MARK - Private
+	public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+		delegate?.scrollViewWillBeginDragging?(scrollView)
+	}
+	
+	public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+		delegate?.scrollViewWillEndDragging?(scrollView, withVelocity: velocity, targetContentOffset: targetContentOffset)
+	}
+	
+	public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+		delegate?.scrollViewDidEndDragging?(scrollView, willDecelerate: decelerate)
+	}
+	
+	public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+		delegate?.scrollViewWillBeginDecelerating?(scrollView)
+	}
+	
+	public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+		delegate?.scrollViewDidEndDecelerating?(scrollView)
+	}
+	
+	public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+		delegate?.scrollViewDidEndScrollingAnimation?(scrollView)
+	}
+	
+	public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+		return delegate?.viewForZooming?(in: scrollView)
+	}
+	
+	public func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+		delegate?.scrollViewWillBeginZooming?(scrollView, with: view)
+	}
+	
+	public func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+		delegate?.scrollViewDidEndZooming?(scrollView, with: view, atScale: scale)
+	}
+	
+	public func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+		return delegate?.scrollViewShouldScrollToTop?(scrollView) ?? true
+	}
+	
+	public func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+		delegate?.scrollViewDidScrollToTop?(scrollView)
+	}
+
+	
+	
+	//MARK: - Private
 	
 	fileprivate func removeNodes(at range: CountableRange<Int>) {
 		for node in flattened[range] {
@@ -515,6 +571,8 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		let start = range.lowerBound
 		var selections = [IndexPath]()
 		
+		let animation = UIView.areAnimationsEnabled ? UITableViewRowAnimation.fade : .none
+		
 		nodes.changes(from: from) { (old, new, type) in
 			switch type {
 			case .insert:
@@ -522,9 +580,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 				if nodes[new!].isSelected {
 					selections.append(indexPath)
 				}
-				tableView.insertRows(at: [indexPath], with: .fade)
+				tableView.insertRows(at: [indexPath], with: animation)
 			case .delete:
-				tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: .fade)
+				tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
 			case .move:
 				tableView.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: new!, section: 0))
 			case .update:
@@ -537,7 +595,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 
 				switch b.transitionStyle(from: a) {
 				case .reload:
-					tableView.reloadRows(at: [indexPath], with: .fade)
+					tableView.reloadRows(at: [indexPath], with: animation)
 				case .reconfigure:
 					if let cell = tableView.cellForRow(at: indexPath) {
 						b.configure(cell: cell)
@@ -602,40 +660,79 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		}
 	}
 	
+	private struct Update {
+		var insertSection: [Int: TreeNode] = [:]
+		var deleteSection = IndexSet()
+		var insertObject: [IndexPath: TreeNode] = [:]
+		var deleteObject = [IndexPath]()
+		var moveObject: [IndexPath: IndexPath] = [:]
+		var update: [IndexPath: Any] = [:]
+	}
+	private var update: Update?
+	
 	func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+		guard sectionNode != nil else {return}
+		self.update = Update()
 		treeController?.beginUpdates()
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
+		guard update != nil else {return}
 		guard let sectionNode = self.sectionNode else {return}
 		switch type {
 		case .insert:
-			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
+			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
+//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
 		case .delete:
-			children.remove(at: sectionIndex)
+			update?.deleteSection.insert(sectionIndex)
+//			children.remove(at: sectionIndex)
 		default:
 			break
 		}
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-		guard self.sectionNode == nil else {return}
+		guard update != nil else {return}
+//		guard self.sectionNode == nil else {return}
 		switch type {
 		case .insert:
-			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
+			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+//			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
 		case .delete:
-			children.remove(at: indexPath!.row)
+			update?.deleteObject.append(indexPath!)
+//			children.remove(at: indexPath!.row)
 		case .move:
-			children.remove(at: indexPath!.row)
-			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
+			update?.deleteObject.append(indexPath!)
+			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+//			update?.moveObject[indexPath]
+//			children.remove(at: indexPath!.row)
+//			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
 		case .update:
-			children[newIndexPath!.row] = objectNode.init(object: anObject as! ResultType)
+			update?.update[newIndexPath!] = anObject
+//			children[newIndexPath!.row] = objectNode.init(object: anObject as! ResultType)
 		}
 	}
 	
 	
 	func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+		guard let update = update else {return}
+		
+		if !update.deleteSection.isEmpty {
+			children.remove(at: update.deleteSection)
+		}
+		for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
+			children.insert(i.value, at: i.key)
+		}
+		for i in update.deleteObject.sorted(by: > ) {
+			children[i.section].children.remove(at: i.row)
+		}
+		for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
+//			children.insert(i.value, at: i.key)
+			children[i.section].children.insert(value, at: i.row)
+		}
+		
 		treeController?.endUpdates()
+		self.update = nil
 	}
 }
 
