@@ -380,14 +380,19 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	private var updatesCounter: Int = 0
 	
 	public func beginUpdates() {
-		tableView.beginUpdates()
+		if UIView.areAnimationsEnabled {
+			tableView.beginUpdates()
+		}
 		updatesCounter += 1
 	}
 	
 	public func endUpdates() {
-		tableView.endUpdates()
+		if UIView.areAnimationsEnabled {
+			tableView.endUpdates()
+		}
 		updatesCounter -= 1
 		if updatesCounter == 0 {
+			tableView.reloadData()
 			delegate?.treeControllerDidUpdateContent?(self)
 		}
 	}
@@ -543,14 +548,26 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		flattened.removeSubrange(range)
 		updateIndexes()
 		
-		tableView.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+		if UIView.areAnimationsEnabled {
+			tableView.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+		}
+		else {
+			tableView.reloadData()
+		}
 	}
 	
 	fileprivate func insertNodes(_ nodes: [TreeNode], at index: Int) {
 		flattened.insert(contentsOf: nodes, at: index)
 		updateIndexes()
 		let range = index..<(index + nodes.count)
-		tableView.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+		
+		if UIView.areAnimationsEnabled {
+			tableView.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+		}
+		else {
+			tableView.reloadData()
+		}
+		
 		for (i, node) in flattened[range].enumerated() {
 			if node.isSelected {
 				tableView.selectRow(at: IndexPath(row: range.lowerBound + i, section: 0), animated: false, scrollPosition: .none)
@@ -573,38 +590,51 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		
 		let animation = UIView.areAnimationsEnabled ? UITableViewRowAnimation.fade : .none
 		
-		nodes.changes(from: from) { (old, new, type) in
-			switch type {
-			case .insert:
-				let indexPath = IndexPath(row: start + new!, section: 0)
-				if nodes[new!].isSelected {
-					selections.append(indexPath)
-				}
-				tableView.insertRows(at: [indexPath], with: animation)
-			case .delete:
-				tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
-			case .move:
-				tableView.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: new!, section: 0))
-			case .update:
-				let indexPath = IndexPath(row: start + old!, section: 0)
-				let a = from[old!]
-				let b = nodes[new!]
-				if b.isSelected {
-					selections.append(indexPath)
-				}
-
-				switch b.transitionStyle(from: a) {
-				case .reload:
-					tableView.reloadRows(at: [indexPath], with: animation)
-				case .reconfigure:
-					if let cell = tableView.cellForRow(at: indexPath) {
-						b.configure(cell: cell)
+		if UIView.areAnimationsEnabled {
+			nodes.changes(from: from) { (old, new, type) in
+				switch type {
+				case .insert:
+					let indexPath = IndexPath(row: start + new!, section: 0)
+					if nodes[new!].isSelected {
+						selections.append(indexPath)
 					}
+					tableView.insertRows(at: [indexPath], with: animation)
+				case .delete:
+					tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
+				case .move:
+					//				tableView.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: start + new!, section: 0))
+					let indexPath = IndexPath(row: start + new!, section: 0)
+					if nodes[new!].isSelected {
+						selections.append(indexPath)
+					}
+					
+					tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
+					tableView.insertRows(at: [indexPath], with: animation)
+				case .update:
+					let indexPath = IndexPath(row: start + old!, section: 0)
+					let a = from[old!]
+					let b = nodes[new!]
+					if b.isSelected {
+						selections.append(indexPath)
+					}
+					
+					switch b.transitionStyle(from: a) {
+					case .reload:
+						tableView.reloadRows(at: [indexPath], with: animation)
+						break
+					case .reconfigure:
+						if let cell = tableView.cellForRow(at: indexPath) {
+							b.configure(cell: cell)
+						}
 					//tableView.reloadRows(at: [indexPath], with: .none)
-				default:
-					break
+					default:
+						break
+					}
 				}
 			}
+		}
+		else {
+			tableView.reloadData()
 		}
 		
 		updateIndexes()
