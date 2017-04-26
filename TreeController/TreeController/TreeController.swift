@@ -701,7 +701,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	private var update: Update?
 	
 	func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-		guard sectionNode != nil else {return}
+//		guard objectNode != nil else {return}
 		self.update = Update()
 		treeController?.beginUpdates()
 	}
@@ -747,18 +747,27 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
 		guard let update = update else {return}
 		
-		if !update.deleteSection.isEmpty {
-			children.remove(at: update.deleteSection)
+		if sectionNode == nil {
+			for i in update.deleteObject.sorted(by: > ) {
+				children.remove(at: i.row)
+			}
+			for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
+				children.insert(value, at: i.row)
+			}
 		}
-		for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
-			children.insert(i.value, at: i.key)
-		}
-		for i in update.deleteObject.sorted(by: > ) {
-			children[i.section].children.remove(at: i.row)
-		}
-		for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
-//			children.insert(i.value, at: i.key)
-			children[i.section].children.insert(value, at: i.row)
+		else {
+			if !update.deleteSection.isEmpty {
+				children.remove(at: update.deleteSection)
+			}
+			for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
+				children.insert(i.value, at: i.key)
+			}
+			for i in update.deleteObject.sorted(by: > ) {
+				children[i.section].children.remove(at: i.row)
+			}
+			for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
+				children[i.section].children.insert(value, at: i.row)
+			}
 		}
 		
 		treeController?.endUpdates()
