@@ -326,15 +326,16 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			if oldValue == nil || !UIView.areAnimationsEnabled {
 				flattened = to ?? []
 				updateIndexes()
-				tableView.reloadData()
+				tableView?.reloadData()
 			}
 			else {
 				replaceNodes(at: 0..<flattened.count, with: to ?? [])
 			}
+			delegate?.treeControllerDidUpdateContent?(self)
 		}
 	}
 	
-	@IBOutlet public weak var tableView: UITableView!
+	@IBOutlet public weak var tableView: UITableView?
 	@IBOutlet public weak var delegate: TreeControllerDelegate?
 	
 	private var flattened: [TreeNode] = []
@@ -342,11 +343,11 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	public func cell(for node: TreeNode) -> UITableViewCell? {
 		guard let index = node.flatIndex else {return nil}
 		let indexPath = IndexPath(row: index, section: 0)
-		return tableView.cellForRow(at: indexPath)
+		return tableView?.cellForRow(at: indexPath)
 	}
 	
 	public func node(for cell: UITableViewCell) -> TreeNode? {
-		guard let indexPath = tableView.indexPath(for: cell) else {return nil}
+		guard let indexPath = tableView?.indexPath(for: cell) else {return nil}
 		return flattened[indexPath.row]
 	}
 	
@@ -358,7 +359,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	public func reloadCells(for nodes: [TreeNode], with animation: UITableViewRowAnimation = .fade) {
 		let indexPaths = nodes.flatMap({$0.flatIndex == nil ? nil : IndexPath(row: $0.flatIndex!, section:0)})
 		if (indexPaths.count > 0) {
-			tableView.reloadRows(at: indexPaths, with: animation)
+			tableView?.reloadRows(at: indexPaths, with: animation)
 		}
 	}
 
@@ -366,14 +367,14 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		node._isSelected = false
 		guard let index = node.flatIndex else {return}
 		let indexPath = IndexPath(row: index, section: 0)
-		tableView.deselectRow(at: indexPath, animated: animated)
+		tableView?.deselectRow(at: indexPath, animated: animated)
 	}
 	
 	public func selectCell(for node: TreeNode, animated: Bool, scrollPosition: UITableViewScrollPosition) {
 		node._isSelected = true
 		guard let index = node.flatIndex else {return}
 		let indexPath = IndexPath(row: index, section: 0)
-		tableView.selectRow(at: indexPath, animated: animated, scrollPosition: scrollPosition)
+		tableView?.selectRow(at: indexPath, animated: animated, scrollPosition: scrollPosition)
 	}
 	
 	
@@ -381,18 +382,18 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public func beginUpdates() {
 		if UIView.areAnimationsEnabled {
-			tableView.beginUpdates()
+			tableView?.beginUpdates()
 		}
 		updatesCounter += 1
 	}
 	
 	public func endUpdates() {
 		if UIView.areAnimationsEnabled {
-			tableView.endUpdates()
+			tableView?.endUpdates()
 		}
 		updatesCounter -= 1
 		if updatesCounter == 0 {
-			tableView.reloadData()
+			tableView?.reloadData()
 			delegate?.treeControllerDidUpdateContent?(self)
 		}
 	}
@@ -549,10 +550,10 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		updateIndexes()
 		
 		if UIView.areAnimationsEnabled {
-			tableView.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+			tableView?.deleteRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
 		}
 		else {
-			tableView.reloadData()
+			tableView?.reloadData()
 		}
 	}
 	
@@ -562,15 +563,15 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		let range = index..<(index + nodes.count)
 		
 		if UIView.areAnimationsEnabled {
-			tableView.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
+			tableView?.insertRows(at: range.map({IndexPath(row: $0, section: 0)}), with: .fade)
 		}
 		else {
-			tableView.reloadData()
+			tableView?.reloadData()
 		}
 		
 		for (i, node) in flattened[range].enumerated() {
 			if node.isSelected {
-				tableView.selectRow(at: IndexPath(row: range.lowerBound + i, section: 0), animated: false, scrollPosition: .none)
+				tableView?.selectRow(at: IndexPath(row: range.lowerBound + i, section: 0), animated: false, scrollPosition: .none)
 			}
 		}
 	}
@@ -598,18 +599,18 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					if nodes[new!].isSelected {
 						selections.append(indexPath)
 					}
-					tableView.insertRows(at: [indexPath], with: animation)
+					tableView?.insertRows(at: [indexPath], with: animation)
 				case .delete:
-					tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
+					tableView?.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
 				case .move:
-					//				tableView.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: start + new!, section: 0))
+					//				tableView?.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: start + new!, section: 0))
 					let indexPath = IndexPath(row: start + new!, section: 0)
 					if nodes[new!].isSelected {
 						selections.append(indexPath)
 					}
 					
-					tableView.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
-					tableView.insertRows(at: [indexPath], with: animation)
+					tableView?.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
+					tableView?.insertRows(at: [indexPath], with: animation)
 				case .update:
 					let indexPath = IndexPath(row: start + old!, section: 0)
 					let a = from[old!]
@@ -620,13 +621,13 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					
 					switch b.transitionStyle(from: a) {
 					case .reload:
-						tableView.reloadRows(at: [indexPath], with: animation)
+						tableView?.reloadRows(at: [indexPath], with: animation)
 						break
 					case .reconfigure:
-						if let cell = tableView.cellForRow(at: indexPath) {
+						if let cell = tableView?.cellForRow(at: indexPath) {
 							b.configure(cell: cell)
 						}
-					//tableView.reloadRows(at: [indexPath], with: .none)
+					//tableView?.reloadRows(at: [indexPath], with: .none)
 					default:
 						break
 					}
@@ -634,13 +635,13 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			}
 		}
 		else {
-			tableView.reloadData()
+			tableView?.reloadData()
 		}
 		
 		updateIndexes()
 		endUpdates()
 		for indexPath in selections {
-			tableView.selectRow(at: indexPath, animated: false, scrollPosition: .none)
+			tableView?.selectRow(at: indexPath, animated: false, scrollPosition: .none)
 		}
 	}
 	
