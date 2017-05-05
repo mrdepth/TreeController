@@ -393,7 +393,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		}
 		updatesCounter -= 1
 		if updatesCounter == 0 {
-			tableView?.reloadData()
+			if !UIView.areAnimationsEnabled {
+				tableView?.reloadData()
+			}
 			delegate?.treeControllerDidUpdateContent?(self)
 		}
 	}
