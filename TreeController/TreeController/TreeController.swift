@@ -52,7 +52,15 @@ extension Array where Element: TreeNode {
 			}
 		}
 		
+//		var map = [Element: Int]()
+//		to.enumerated().forEach {
+//			map[$0.element] = $0.offset
+//		}
+		
+		
 		for i in removed {
+			guard !inserted.isEmpty else {break}
+
 			let obj = from[i]
 			for j in inserted {
 				if obj == to[j] {
@@ -64,9 +72,27 @@ extension Array where Element: TreeNode {
 					else {
 						updated.append((i, j))
 					}
+					break
 				}
 			}
 		}
+		/*
+		for i in removed {
+			guard !inserted.isEmpty else {break}
+			
+			let obj = from[i]
+			if let j = map[obj], inserted.contains(j) {
+				removed.remove(i)
+				inserted.remove(j)
+				if i != j {
+					moved.append((i, j))
+				}
+				else {
+					updated.append((i, j))
+				}
+			}
+		}
+		*/
 		if !removed.isEmpty {
 			removed.reversed().forEach {handler($0, nil, .delete)}
 		}
@@ -160,7 +186,15 @@ open class TreeNode: NSObject {
 				let size = self.size
 				_children = to
 				let range = index..<(index + size)
-				treeController.replaceNodes(at: range, with: flattened)
+				let to = flattened
+				if range.count < 100 && to.count < 100 {
+					treeController.replaceNodes(at: range, with: to)
+				}
+				else {
+					UIView.performWithoutAnimation {
+						treeController.replaceNodes(at: range, with: to)
+					}
+				}
 			}
 			else {
 				_children = to
@@ -605,33 +639,25 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 				case .delete:
 					tableView?.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
 				case .move:
-					//				tableView?.moveRow(at: IndexPath(row: start + old!, section: 0), to: IndexPath(row: start + new!, section: 0))
-					let indexPath = IndexPath(row: start + new!, section: 0)
+					let oldIndexPath = IndexPath(row: start + old!, section: 0)
+					let newIndexPath = IndexPath(row: start + new!, section: 0)
+
 					if nodes[new!].isSelected {
-						selections.append(indexPath)
+						selections.append(newIndexPath)
 					}
 					
-					tableView?.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
-					tableView?.insertRows(at: [indexPath], with: animation)
+					tableView?.moveRow(at: oldIndexPath, to: newIndexPath)
 				case .update:
-					let indexPath = IndexPath(row: start + old!, section: 0)
-					let a = from[old!]
-					let b = nodes[new!]
-					if b.isSelected {
-						selections.append(indexPath)
+					let oldIndexPath = IndexPath(row: start + old!, section: 0)
+					let newIndexPath = IndexPath(row: start + new!, section: 0)
+					let node = nodes[new!]
+					
+					if node.isSelected {
+						selections.append(newIndexPath)
 					}
 					
-					switch b.transitionStyle(from: a) {
-					case .reload:
-						tableView?.reloadRows(at: [indexPath], with: animation)
-						break
-					case .reconfigure:
-						if let cell = tableView?.cellForRow(at: indexPath) {
-							b.configure(cell: cell)
-						}
-					//tableView?.reloadRows(at: [indexPath], with: .none)
-					default:
-						break
+					if let cell = tableView?.cellForRow(at: oldIndexPath) {
+						node.configure(cell: cell)
 					}
 				}
 			}
