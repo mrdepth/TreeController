@@ -22,6 +22,8 @@ public enum TransitionStyle {
 	case reconfigure
 }
 
+private let TransitionItemsLimit = 100
+
 extension Array where Element: TreeNode {
 	
 	func changes(from: Array<Element>, handler: (_ oldIndex: Index?, _ newIndex: Index?, _ changeType: ChangeType) -> Void) {
@@ -151,7 +153,6 @@ extension Array where Element: TreeNode {
 open class TreeNode: NSObject {
 	open var cellIdentifier: String?
 	open func configure(cell: UITableViewCell) -> Void {
-		cell.indentationLevel = indentationLevel
 	}
 	
 	public init(cellIdentifier: String? = nil) {
@@ -187,7 +188,7 @@ open class TreeNode: NSObject {
 				_children = to
 				let range = index..<(index + size)
 				let to = flattened
-				if range.count < 100 && to.count < 100 {
+				if range.count < TransitionItemsLimit && to.count < TransitionItemsLimit {
 					treeController.replaceNodes(at: range, with: to)
 				}
 				else {
@@ -357,7 +358,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			oldValue?.treeController = nil
 			content?.treeController = self
 			let to = content?.flattened
-			if oldValue == nil || !UIView.areAnimationsEnabled {
+			if oldValue == nil || !UIView.areAnimationsEnabled || (to?.count ?? 0) >= TransitionItemsLimit || flattened.count >= TransitionItemsLimit {
 				flattened = to ?? []
 				updateIndexes()
 				tableView?.reloadData()
@@ -389,7 +390,11 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		guard let index = node.flatIndex else {return nil}
 		return IndexPath(row: index, section: 0)
 	}
-	
+
+	@nonobjc public func node(for indexPath: IndexPath) -> TreeNode? {
+		return flattened[indexPath.row]
+	}
+
 	public func reloadCells(for nodes: [TreeNode], with animation: UITableViewRowAnimation = .fade) {
 		let indexPaths = nodes.flatMap({$0.flatIndex == nil ? nil : IndexPath(row: $0.flatIndex!, section:0)})
 		if (indexPaths.count > 0) {
