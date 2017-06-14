@@ -144,9 +144,11 @@ extension Array where Element: TreeNode {
 	}
 	
 	mutating func remove(at: IndexSet) {
+		var copy = self
 		for i in at.reversed() {
-			self.remove(at: i)
+			copy.remove(at: i)
 		}
+		self = copy
 	}
 }
 
@@ -646,11 +648,15 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 				case .move:
 					let oldIndexPath = IndexPath(row: start + old!, section: 0)
 					let newIndexPath = IndexPath(row: start + new!, section: 0)
-
-					if nodes[new!].isSelected {
+					let node = nodes[new!]
+					if node.isSelected {
 						selections.append(newIndexPath)
 					}
-					
+
+					if let cell = tableView?.cellForRow(at: oldIndexPath) {
+						node.configure(cell: cell)
+					}
+
 					tableView?.moveRow(at: oldIndexPath, to: newIndexPath)
 				case .update:
 					let oldIndexPath = IndexPath(row: start + old!, section: 0)
@@ -780,7 +786,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	
 	func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
 		guard let update = update else {return}
-		
+		var children = self.children
 		if sectionNode == nil {
 			for i in update.deleteObject.sorted(by: > ) {
 				children.remove(at: i.row)
@@ -803,8 +809,12 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 				children[i.section].children.insert(value, at: i.row)
 			}
 		}
-		
+		self.children = children
 		treeController?.endUpdates()
+		update.update.forEach {
+			let node = children[$0.key.row]
+			self.treeController?.reloadCells(for: [node], with: .none)
+		}
 		self.update = nil
 	}
 }
