@@ -35,7 +35,32 @@ extension Array where Element == TreeNode {
 		var updated = [(Int, Int)]()
 		var moved = [(Int, Int)]()
 		
-		var j = 0
+		var n = 0
+		for (i, v) in from.enumerated() {
+			if let j = to.index(of: v) {
+				if i - n == j {
+					updated.append((i, j))
+				}
+				else {
+					moved.append((i, j))
+					arr.remove(at: i - n)
+					n += 1
+				}
+			}
+			else {
+				removed.insert(i)
+				arr.remove(at: i - n)
+				n += 1
+			}
+		}
+		
+		for (i, v) in to.enumerated() {
+			if !from.contains(v) {
+				inserted.insert(i)
+			}
+		}
+		
+		/*var j = 0
 		for (i, v) in from.enumerated() {
 			if to.count <= j || to[j] != v {
 				arr.remove(at: i - removed.count)
@@ -52,7 +77,7 @@ extension Array where Element == TreeNode {
 				inserted.insert(i)
 				arr.insert(v, at: i)
 			}
-		}
+		}*/
 		
 //		var map = [Element: Int]()
 //		to.enumerated().forEach {
