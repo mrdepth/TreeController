@@ -24,7 +24,7 @@ public enum TransitionStyle {
 
 private let TransitionItemsLimit = 100
 
-extension Array where Element: TreeNode {
+extension Array where Element == TreeNode {
 	
 	func changes(from: Array<Element>, handler: (_ oldIndex: Index?, _ newIndex: Index?, _ changeType: ChangeType) -> Void) {
 		let to = self
@@ -60,7 +60,7 @@ extension Array where Element: TreeNode {
 //		}
 		
 		
-		for i in removed {
+		/*for i in removed {
 			guard !inserted.isEmpty else {break}
 
 			let obj = from[i]
@@ -77,7 +77,7 @@ extension Array where Element: TreeNode {
 					break
 				}
 			}
-		}
+		}*/
 		/*
 		for i in removed {
 			guard !inserted.isEmpty else {break}
@@ -811,10 +811,10 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		}
 		self.children = children
 		treeController?.endUpdates()
-		update.update.forEach {
-			let node = children[$0.key.row]
-			self.treeController?.reloadCells(for: [node], with: .none)
-		}
+//		update.update.forEach {
+//			let node = children[$0.key.row]
+//			self.treeController?.reloadCells(for: [node], with: .none)
+//		}
 		self.update = nil
 	}
 }
