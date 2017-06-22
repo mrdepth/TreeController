@@ -246,9 +246,7 @@ open class TreeNode: NSObject {
 		}
 	}
 	
-	open var isExpandable: Bool {
-		return true
-	}
+	open var isExpandable: Bool = true
 	
 	private var removeRange: CountableRange<Int>?
 	open var isExpanded: Bool = true {
