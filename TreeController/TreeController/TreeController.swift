@@ -380,6 +380,8 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public var content: TreeNode? {
 		didSet {
+			guard content !== oldValue else {return}
+			
 			oldValue?.treeController = nil
 			content?.treeController = self
 			let to = content?.flattened
