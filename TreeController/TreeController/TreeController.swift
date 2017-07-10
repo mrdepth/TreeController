@@ -16,12 +16,6 @@ public enum ChangeType {
 	case update
 }
 
-public enum TransitionStyle {
-	case none
-	case reload
-	case reconfigure
-}
-
 private let TransitionItemsLimit = 100
 
 extension Array where Element == TreeNode {
@@ -304,12 +298,10 @@ open class TreeNode: NSObject {
 		}
 	}
 
-	open func transitionStyle(from node: TreeNode) -> TransitionStyle {
-		return .none
+	open func loadChildren() {
 	}
 	
-	open func loadChildren() {
-		
+	open func update(from node: TreeNode) {
 	}
 	
 	private weak var _treeController: TreeController?
@@ -687,6 +679,8 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					let oldIndexPath = IndexPath(row: start + old!, section: 0)
 					let newIndexPath = IndexPath(row: start + new!, section: 0)
 					let node = nodes[new!]
+					let oldNode = from[old!]
+					node.update(from: oldNode)
 					
 					if node.isSelected {
 						selections.append(newIndexPath)
