@@ -199,6 +199,17 @@ open class TreeNode: NSObject {
 			
 			if from != nil, let treeController = treeController, let index = flatIndex {
 				let size = self.size
+				
+				if let from = _children {
+					var set = Set(from)
+					for a in to {
+						if let b = set.remove(a) {
+							a.update(from: b)
+						}
+					}
+				}
+				
+
 				_children = to
 				let range = index..<(index + size)
 				let to = flattened
@@ -295,6 +306,19 @@ open class TreeNode: NSObject {
 	}
 	
 	open func update(from node: TreeNode) {
+		isExpanded = node.isExpanded
+		isSelected = node.isSelected
+		estimatedHeight = node.estimatedHeight
+		
+		if let from = _children, let to = node._children {
+			var set = Set(from)
+			for a in to {
+				if let b = set.remove(a) {
+					a.update(from: b)
+				}
+			}
+		}
+
 	}
 	
 	private weak var _treeController: TreeController?
@@ -660,11 +684,11 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					let newIndexPath = IndexPath(row: start + new!, section: 0)
 					
 					let node = nodes[new!]
-					let oldNode = from[old!]
-					node.isExpanded = oldNode.isExpanded
-					node.isSelected = oldNode.isSelected
-					node.estimatedHeight = oldNode.estimatedHeight
-					node.update(from: oldNode)
+//					let oldNode = from[old!]
+//					node.isExpanded = oldNode.isExpanded
+//					node.isSelected = oldNode.isSelected
+//					node.estimatedHeight = oldNode.estimatedHeight
+//					node.update(from: oldNode)
 
 					if node.isSelected {
 						selections.append(newIndexPath)
@@ -679,12 +703,12 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					let oldIndexPath = IndexPath(row: start + old!, section: 0)
 					let newIndexPath = IndexPath(row: start + new!, section: 0)
 					let node = nodes[new!]
-					let oldNode = from[old!]
+//					let oldNode = from[old!]
 					
-					node.isExpanded = oldNode.isExpanded
-					node.isSelected = oldNode.isSelected
-					node.estimatedHeight = oldNode.estimatedHeight
-					node.update(from: oldNode)
+//					node.isExpanded = oldNode.isExpanded
+//					node.isSelected = oldNode.isSelected
+//					node.estimatedHeight = oldNode.estimatedHeight
+//					node.update(from: oldNode)
 					
 					if node.isSelected {
 						selections.append(newIndexPath)
@@ -697,16 +721,16 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			}
 		}
 		else {
-			var set = Set(from)
-			
-			for a in nodes {
-				if let b = set.remove(a) {
-					a.isExpanded = b.isExpanded
-					a.isSelected = b.isSelected
-					a.estimatedHeight = b.estimatedHeight
-					a.update(from: b)
-				}
-			}
+//			var set = Set(from)
+//			
+//			for a in nodes {
+//				if let b = set.remove(a) {
+//					a.isExpanded = b.isExpanded
+//					a.isSelected = b.isSelected
+//					a.estimatedHeight = b.estimatedHeight
+//					a.update(from: b)
+//				}
+//			}
 
 			tableView?.reloadData()
 		}
