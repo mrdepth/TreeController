@@ -310,7 +310,7 @@ open class TreeNode: NSObject {
 		isSelected = node.isSelected
 		estimatedHeight = node.estimatedHeight
 		
-		if let from = _children, let to = node._children {
+		if let to = _children, let from = node._children {
 			var set = Set(from)
 			for a in to {
 				if let b = set.remove(a) {
