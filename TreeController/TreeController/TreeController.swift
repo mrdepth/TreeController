@@ -9,157 +9,49 @@
 import UIKit
 import CoreData
 
-public enum ChangeType {
-	case insert
-	case delete
-	case move
-	case update
+private let TransitionItemsLimit = 100
+
+public enum EditAction {
+	case insert(Int)
+	case delete(Int)
+	case move(Int, Int)
+	case update(Int, Int)
 }
 
-private let TransitionItemsLimit = 100
 
 extension Array where Element == TreeNode {
 	
-	func changes(from: Array<Element>, handler: (_ oldIndex: Index?, _ newIndex: Index?, _ changeType: ChangeType) -> Void) {
-		let to = self
-		var arr = from
+	func editDistance(from: Array<Element>, handler: (EditAction) -> Void) {
+		var to = self.enumerated().map{$0}
+		let from = from.enumerated().map{$0}
 		
-		var removed = IndexSet()
-		var inserted = IndexSet()
-		var updated = [(Int, Int)]()
-		var moved = [(Int, Int)]()
+		var updated: [EditAction] = []
+		var removed: [EditAction] = []
+		var moved: [EditAction] = []
 		
-		var n = 0
-		for (i, v) in from.enumerated() {
-			if let j = to.index(of: v) {
-				if i - n == j {
-					updated.append((i, j))
+		for a in from {
+			if let j = to.index(where: {$0.element == a.element}) {
+				let b = to[j]
+				if j == 0 {
+					updated.append(.update(a.offset, b.offset))
 				}
 				else {
-					moved.append((i, j))
-					arr.remove(at: i - n)
-					n += 1
+					moved.append(.move(a.offset, b.offset))
 				}
+				to.remove(at: j)
 			}
 			else {
-				removed.insert(i)
-				arr.remove(at: i - n)
-				n += 1
+				removed.append(.delete(a.offset))
 			}
 		}
 		
-		for (i, v) in to.enumerated() {
-			if !from.contains(v) {
-				inserted.insert(i)
+		let inserted = to.map {EditAction.insert($0.offset)}
+		
+		[removed, inserted, moved, updated].forEach {
+			$0.forEach {
+				handler($0)
 			}
 		}
-		
-		/*var j = 0
-		for (i, v) in from.enumerated() {
-			if to.count <= j || to[j] != v {
-				arr.remove(at: i - removed.count)
-				removed.insert(i)
-			}
-			else {
-				updated.append((i, j))
-				j += 1
-			}
-		}
-		
-		for (i, v) in to.enumerated() {
-			if arr.count <= i || arr[i] != v {
-				inserted.insert(i)
-				arr.insert(v, at: i)
-			}
-		}*/
-		
-//		var map = [Element: Int]()
-//		to.enumerated().forEach {
-//			map[$0.element] = $0.offset
-//		}
-		
-		
-		/*for i in removed {
-			guard !inserted.isEmpty else {break}
-
-			let obj = from[i]
-			for j in inserted {
-				if obj == to[j] {
-					removed.remove(i)
-					inserted.remove(j)
-					if i != j {
-						moved.append((i, j))
-					}
-					else {
-						updated.append((i, j))
-					}
-					break
-				}
-			}
-		}*/
-		/*
-		for i in removed {
-			guard !inserted.isEmpty else {break}
-			
-			let obj = from[i]
-			if let j = map[obj], inserted.contains(j) {
-				removed.remove(i)
-				inserted.remove(j)
-				if i != j {
-					moved.append((i, j))
-				}
-				else {
-					updated.append((i, j))
-				}
-			}
-		}
-		*/
-		if !removed.isEmpty {
-			removed.reversed().forEach {handler($0, nil, .delete)}
-		}
-		if !inserted.isEmpty {
-			inserted.forEach {handler(nil, $0, .insert)}
-		}
-		if !moved.isEmpty {
-			moved.reversed().forEach {handler($0.0, $0.1, .move)}
-		}
-		if !updated.isEmpty {
-			updated.forEach {handler($0.0, $0.1, .update)}
-		}
-		
-		/*let to = self
-		var arr = from
-		
-		for (i, v) in from.enumerated().reversed() {
-			if to.index(of: v) == nil {
-				handler(i, nil, .delete)
-				arr.remove(at: i)
-			}
-		}
-		
-		var moves = Set<Int>()
-		
-		for i in indices {
-			guard !moves.contains(i) else {continue}
-			let obj = to[i]
-			if let j = arr[i..<arr.count].index(of: obj) {
-				let k = from.index(of: obj)!
-				
-				if j != i {
-					handler(k, i, .move)
-					moves.insert(k)
-				}
-				let obj2 = from[k]
-				if obj !== obj2 {
-					handler(k, i, .update)
-				}
-				
-			}
-			else {
-				handler(nil, i, .insert)
-				arr.insert(obj, at: i)
-			}
-		}*/
 	}
 	
 	mutating func remove(at: IndexSet) {
@@ -170,6 +62,7 @@ extension Array where Element == TreeNode {
 		self = copy
 	}
 }
+
 
 open class TreeNode: NSObject {
 	open var cellIdentifier: String?
@@ -209,7 +102,7 @@ open class TreeNode: NSObject {
 					}
 				}
 				
-
+				
 				_children = to
 				let range = index..<(index + size)
 				let to = flattened
@@ -245,6 +138,7 @@ open class TreeNode: NSObject {
 	}
 	
 	open var isExpandable: Bool = true
+	open var canMove: Bool = false
 	
 	private var removeRange: CountableRange<Int>?
 	open var isExpanded: Bool = true {
@@ -301,7 +195,7 @@ open class TreeNode: NSObject {
 			}
 		}
 	}
-
+	
 	open func loadChildren() {
 	}
 	
@@ -318,7 +212,7 @@ open class TreeNode: NSObject {
 				}
 			}
 		}
-
+		
 	}
 	
 	private weak var _treeController: TreeController?
@@ -327,7 +221,13 @@ open class TreeNode: NSObject {
 	}
 	fileprivate var estimatedHeight: CGFloat?
 	
-	fileprivate var flatIndex: Int?
+	fileprivate var flatIndex: Int? {
+		didSet {
+			if let old = oldValue, flatIndex == nil, parent?.flatIndex == old {
+				parent?.flatIndex = nil
+			}
+		}
+	}
 	
 	fileprivate var size: Int {
 		var size = isViewable ? 1 : 0
@@ -377,6 +277,7 @@ open class TreeNode: NSObject {
 	@objc optional func treeController(_ treeController: TreeController, didCollapseCellWithNode node: TreeNode) -> Void
 	@objc optional func treeController(_ treeController: TreeController, accessoryButtonTappedWithNode node: TreeNode) -> Void
 	@objc optional func treeController(_ treeController: TreeController, commit editingStyle: UITableViewCellEditingStyle, forNode node: TreeNode) -> Void
+	@objc optional func treeController(_ treeController: TreeController, didMoveNode node: TreeNode, at: Int, to: Int) -> Void
 	
 	@objc optional func treeControllerDidUpdateContent(_ treeController: TreeController) -> Void
 }
@@ -410,7 +311,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	@IBOutlet public weak var delegate: TreeControllerDelegate?
 	
 	private var flattened: [TreeNode] = []
-
+	
 	public func cell(for node: TreeNode) -> UITableViewCell? {
 		guard let index = node.flatIndex else {return nil}
 		let indexPath = IndexPath(row: index, section: 0)
@@ -426,18 +327,18 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		guard let index = node.flatIndex else {return nil}
 		return IndexPath(row: index, section: 0)
 	}
-
+	
 	@nonobjc public func node(for indexPath: IndexPath) -> TreeNode? {
 		return flattened[indexPath.row]
 	}
-
+	
 	public func reloadCells(for nodes: [TreeNode], with animation: UITableViewRowAnimation = .fade) {
 		let indexPaths = nodes.flatMap({$0.flatIndex == nil ? nil : IndexPath(row: $0.flatIndex!, section:0)})
 		if (indexPaths.count > 0) {
 			tableView?.reloadRows(at: indexPaths, with: animation)
 		}
 	}
-
+	
 	public func deselectCell(for node: TreeNode, animated: Bool) {
 		node._isSelected = false
 		guard let index = node.flatIndex else {return}
@@ -474,7 +375,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			delegate?.treeControllerDidUpdateContent?(self)
 		}
 	}
-
+	
 	
 	//MARK: - UITableViewDataSource
 	
@@ -503,6 +404,36 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
 		delegate?.treeController?(self, commit: editingStyle, forNode: node)
+	}
+	
+	public func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+		let node = flattened[indexPath.row]
+		return node.canMove
+	}
+	
+	public func tableView(_ tableView: UITableView, targetIndexPathForMoveFromRowAt sourceIndexPath: IndexPath, toProposedIndexPath proposedDestinationIndexPath: IndexPath) -> IndexPath {
+		let parent = flattened[sourceIndexPath.row].parent
+		var i = proposedDestinationIndexPath.row
+		let di = i > sourceIndexPath.row ? -1 : 1
+		while flattened[i].parent !== parent {
+			i += di
+		}
+		return IndexPath(row: i, section: 0)
+	}
+	
+	public func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+		let node = flattened[sourceIndexPath.row]
+		guard let parent = node.parent else {return}
+		
+		var children = parent.children
+		guard let start = children.first?.flatIndex else {return}
+
+		guard let i = children.index(of: node) else {return}
+		let j = destinationIndexPath.row - start
+		children.remove(at: i)
+		children.insert(node, at: j)
+		parent.children = children
+		delegate?.treeController?(self, didMoveNode: node, at: i, to: j)
 	}
 	
 	//MARK: - UITableViewDelegate
@@ -614,7 +545,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	public func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
 		delegate?.scrollViewDidScrollToTop?(scrollView)
 	}
-
+	
 	
 	
 	//MARK: - Private
@@ -655,7 +586,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	fileprivate func replaceNodes(at range: CountableRange<Int>, with nodes: [TreeNode]) {
 		beginUpdates()
-
+		
 		let from = Array(flattened[range])
 		for node in from {
 			node.flatIndex = nil
@@ -669,47 +600,34 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		let animation = UIView.areAnimationsEnabled ? UITableViewRowAnimation.fade : .none
 		
 		if UIView.areAnimationsEnabled {
-			nodes.changes(from: from) { (old, new, type) in
-				switch type {
-				case .insert:
-					let indexPath = IndexPath(row: start + new!, section: 0)
-					if nodes[new!].isSelected {
+			nodes.editDistance(from: from) { action in
+				switch action {
+				case let .insert(new):
+					let indexPath = IndexPath(row: start + new, section: 0)
+					if nodes[new].isSelected {
 						selections.append(indexPath)
 					}
 					tableView?.insertRows(at: [indexPath], with: animation)
-				case .delete:
-					tableView?.deleteRows(at: [IndexPath(row: start + old!, section: 0)], with: animation)
-				case .move:
-					let oldIndexPath = IndexPath(row: start + old!, section: 0)
-					let newIndexPath = IndexPath(row: start + new!, section: 0)
+				case let .delete(old):
+					tableView?.deleteRows(at: [IndexPath(row: start + old, section: 0)], with: animation)
+				case let .move(old, new):
+					let oldIndexPath = IndexPath(row: start + old, section: 0)
+					let newIndexPath = IndexPath(row: start + new, section: 0)
 					
-					let node = nodes[new!]
-//					let oldNode = from[old!]
-//					node.isExpanded = oldNode.isExpanded
-//					node.isSelected = oldNode.isSelected
-//					node.estimatedHeight = oldNode.estimatedHeight
-//					node.update(from: oldNode)
-
+					let node = nodes[new]
 					if node.isSelected {
 						selections.append(newIndexPath)
 					}
-
+					
 					if let cell = tableView?.cellForRow(at: oldIndexPath) {
 						node.configure(cell: cell)
 					}
-
+					
 					tableView?.moveRow(at: oldIndexPath, to: newIndexPath)
-				case .update:
-					let oldIndexPath = IndexPath(row: start + old!, section: 0)
-					let newIndexPath = IndexPath(row: start + new!, section: 0)
-					let node = nodes[new!]
-//					let oldNode = from[old!]
-					
-//					node.isExpanded = oldNode.isExpanded
-//					node.isSelected = oldNode.isSelected
-//					node.estimatedHeight = oldNode.estimatedHeight
-//					node.update(from: oldNode)
-					
+				case let .update(old, new):
+					let oldIndexPath = IndexPath(row: start + old, section: 0)
+					let newIndexPath = IndexPath(row: start + new, section: 0)
+					let node = nodes[new]
 					if node.isSelected {
 						selections.append(newIndexPath)
 					}
@@ -721,17 +639,6 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			}
 		}
 		else {
-//			var set = Set(from)
-//			
-//			for a in nodes {
-//				if let b = set.remove(a) {
-//					a.isExpanded = b.isExpanded
-//					a.isSelected = b.isSelected
-//					a.estimatedHeight = b.estimatedHeight
-//					a.update(from: b)
-//				}
-//			}
-
 			tableView?.reloadData()
 		}
 		
@@ -759,7 +666,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		}
 		update(content)
 	}
-
+	
 }
 
 
@@ -799,7 +706,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	private var update: Update?
 	
 	func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-//		guard objectNode != nil else {return}
+		//		guard objectNode != nil else {return}
 		self.update = Update()
 		treeController?.beginUpdates()
 	}
@@ -810,10 +717,10 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		switch type {
 		case .insert:
 			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
-//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
+		//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
 		case .delete:
 			update?.deleteSection.insert(sectionIndex)
-//			children.remove(at: sectionIndex)
+		//			children.remove(at: sectionIndex)
 		default:
 			break
 		}
@@ -821,23 +728,19 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
 		guard update != nil else {return}
-//		guard self.sectionNode == nil else {return}
 		switch type {
 		case .insert:
 			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-//			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
 		case .delete:
 			update?.deleteObject.append(indexPath!)
-//			children.remove(at: indexPath!.row)
 		case .move:
-			update?.deleteObject.append(indexPath!)
-			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-//			update?.moveObject[indexPath]
-//			children.remove(at: indexPath!.row)
-//			children.insert(objectNode.init(object: anObject as! ResultType), at: newIndexPath!.row)
+			if (sectionNode == nil && (children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) ||
+				(sectionNode != nil && (children[indexPath!.section].children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) {
+				update?.deleteObject.append(indexPath!)
+				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+			}
 		case .update:
 			update?.update[newIndexPath!] = anObject
-//			children[newIndexPath!.row] = objectNode.init(object: anObject as! ResultType)
 		}
 	}
 	
@@ -869,10 +772,10 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		}
 		self.children = children
 		treeController?.endUpdates()
-//		update.update.forEach {
-//			let node = children[$0.key.row]
-//			self.treeController?.reloadCells(for: [node], with: .none)
-//		}
+		//		update.update.forEach {
+		//			let node = children[$0.key.row]
+		//			self.treeController?.reloadCells(for: [node], with: .none)
+		//		}
 		self.update = nil
 	}
 }
