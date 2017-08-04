@@ -180,28 +180,28 @@ open class TreeNode: NSObject {
 		}
 	}
 	
-	fileprivate var _isSelected: Bool = false
-	open var isSelected: Bool {
-		get {
-			return _isSelected
-		}
-		set {
-			_isSelected = newValue
-			if newValue {
-				treeController?.selectCell(for: self, animated: true, scrollPosition: .none)
-			}
-			else {
-				treeController?.deselectCell(for: self, animated: true)
-			}
-		}
-	}
+//	fileprivate var _isSelected: Bool = false
+//	open var isSelected: Bool {
+//		get {
+//			return _isSelected
+//		}
+//		set {
+//			_isSelected = newValue
+//			if newValue {
+//				treeController?.selectCell(for: self, animated: true, scrollPosition: .none)
+//			}
+//			else {
+//				treeController?.deselectCell(for: self, animated: true)
+//			}
+//		}
+//	}
 	
 	open func loadChildren() {
 	}
 	
 	open func update(from node: TreeNode) {
 		isExpanded = node.isExpanded
-		isSelected = node.isSelected
+//		isSelected = node.isSelected
 		estimatedHeight = node.estimatedHeight
 		
 		if let to = _children, let from = node._children {
@@ -340,14 +340,14 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	}
 	
 	public func deselectCell(for node: TreeNode, animated: Bool) {
-		node._isSelected = false
+//		node._isSelected = false
 		guard let index = node.flatIndex else {return}
 		let indexPath = IndexPath(row: index, section: 0)
 		tableView?.deselectRow(at: indexPath, animated: animated)
 	}
 	
 	public func selectCell(for node: TreeNode, animated: Bool, scrollPosition: UITableViewScrollPosition) {
-		node._isSelected = true
+//		node._isSelected = true
 		guard let index = node.flatIndex else {return}
 		let indexPath = IndexPath(row: index, section: 0)
 		tableView?.selectRow(at: indexPath, animated: animated, scrollPosition: scrollPosition)
@@ -374,6 +374,10 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			}
 			delegate?.treeControllerDidUpdateContent?(self)
 		}
+	}
+	
+	public func selectedNodes() -> [TreeNode] {
+		return tableView?.indexPathsForSelectedRows?.map{flattened[$0.row]} ?? []
 	}
 	
 	
@@ -440,20 +444,35 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	
 	public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
+		delegate?.treeController?(self, didSelectCellWithNode: node)
+
 		if node.isExpandable {
 			node.isExpanded = !node.isExpanded
+			if node.isExpanded {
+				delegate?.treeController?(self, didExpandCellWithNode: node)
+			}
+			else {
+				delegate?.treeController?(self, didCollapseCellWithNode: node)
+			}
 		}
-		node._isSelected = true
-		delegate?.treeController?(self, didSelectCellWithNode: node)
+//		node._isSelected = true
 	}
 	
 	public func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
+		delegate?.treeController?(self, didDeselectCellWithNode: node)
+
 		if node.isExpandable && ((tableView.allowsMultipleSelection && !tableView.isEditing) || (tableView.allowsMultipleSelectionDuringEditing && tableView.isEditing))  {
 			node.isExpanded = !node.isExpanded
+			if node.isExpanded {
+				delegate?.treeController?(self, didExpandCellWithNode: node)
+			}
+			else {
+				delegate?.treeController?(self, didCollapseCellWithNode: node)
+			}
+
 		}
-		node._isSelected = false
-		delegate?.treeController?(self, didDeselectCellWithNode: node)
+//		node._isSelected = false
 	}
 	
 	public func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
@@ -577,11 +596,11 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 			tableView?.reloadData()
 		}
 		
-		for (i, node) in flattened[range].enumerated() {
-			if node.isSelected {
-				tableView?.selectRow(at: IndexPath(row: range.lowerBound + i, section: 0), animated: false, scrollPosition: .none)
-			}
-		}
+//		for (i, node) in flattened[range].enumerated() {
+//			if node.isSelected {
+//				tableView?.selectRow(at: IndexPath(row: range.lowerBound + i, section: 0), animated: false, scrollPosition: .none)
+//			}
+//		}
 	}
 	
 	fileprivate func replaceNodes(at range: CountableRange<Int>, with nodes: [TreeNode]) {
@@ -595,7 +614,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		flattened.replaceSubrange(range, with: nodes)
 		
 		let start = range.lowerBound
-		var selections = [IndexPath]()
+//		var selections = [IndexPath]()
 		
 		let animation = UIView.areAnimationsEnabled ? UITableViewRowAnimation.fade : .none
 		
@@ -604,9 +623,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 				switch action {
 				case let .insert(new):
 					let indexPath = IndexPath(row: start + new, section: 0)
-					if nodes[new].isSelected {
-						selections.append(indexPath)
-					}
+//					if nodes[new].isSelected {
+//						selections.append(indexPath)
+//					}
 					tableView?.insertRows(at: [indexPath], with: animation)
 				case let .delete(old):
 					tableView?.deleteRows(at: [IndexPath(row: start + old, section: 0)], with: animation)
@@ -615,9 +634,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					let newIndexPath = IndexPath(row: start + new, section: 0)
 					
 					let node = nodes[new]
-					if node.isSelected {
-						selections.append(newIndexPath)
-					}
+//					if node.isSelected {
+//						selections.append(newIndexPath)
+//					}
 					
 					if let cell = tableView?.cellForRow(at: oldIndexPath) {
 						node.configure(cell: cell)
@@ -628,9 +647,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					let oldIndexPath = IndexPath(row: start + old, section: 0)
 					let newIndexPath = IndexPath(row: start + new, section: 0)
 					let node = nodes[new]
-					if node.isSelected {
-						selections.append(newIndexPath)
-					}
+//					if node.isSelected {
+//						selections.append(newIndexPath)
+//					}
 					
 					if let cell = tableView?.cellForRow(at: oldIndexPath) {
 						node.configure(cell: cell)
@@ -644,9 +663,9 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		
 		updateIndexes()
 		endUpdates()
-		for indexPath in selections {
-			tableView?.selectRow(at: indexPath, animated: false, scrollPosition: .none)
-		}
+//		for indexPath in selections {
+//			tableView?.selectRow(at: indexPath, animated: false, scrollPosition: .none)
+//		}
 	}
 	
 	fileprivate func updateIndexes() {
