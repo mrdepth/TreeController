@@ -645,7 +645,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 					tableView?.moveRow(at: oldIndexPath, to: newIndexPath)
 				case let .update(old, new):
 					let oldIndexPath = IndexPath(row: start + old, section: 0)
-					let newIndexPath = IndexPath(row: start + new, section: 0)
+//					let newIndexPath = IndexPath(row: start + new, section: 0)
 					let node = nodes[new]
 //					if node.isSelected {
 //						selections.append(newIndexPath)
@@ -714,59 +714,60 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		}
 	}
 	
-	private struct Update {
-		var insertSection: [Int: TreeNode] = [:]
-		var deleteSection = IndexSet()
-		var insertObject: [IndexPath: TreeNode] = [:]
-		var deleteObject = [IndexPath]()
-		var moveObject: [IndexPath: IndexPath] = [:]
-		var update: [IndexPath: Any] = [:]
-	}
-	private var update: Update?
+//	private struct Update {
+//		var insertSection: [Int: TreeNode] = [:]
+//		var deleteSection = IndexSet()
+//		var insertObject: [IndexPath: TreeNode] = [:]
+//		var deleteObject = [IndexPath]()
+//		var moveObject: [IndexPath: IndexPath] = [:]
+//		var update: [IndexPath: Any] = [:]
+//	}
+//	private var update: Update?
 	
 	func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
 		//		guard objectNode != nil else {return}
-		self.update = Update()
+//		self.update = Update()
 		treeController?.beginUpdates()
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
-		guard update != nil else {return}
-		guard let sectionNode = self.sectionNode else {return}
-		switch type {
-		case .insert:
-			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
-		//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
-		case .delete:
-			update?.deleteSection.insert(sectionIndex)
-		//			children.remove(at: sectionIndex)
-		default:
-			break
-		}
+//		guard update != nil else {return}
+//		guard let sectionNode = self.sectionNode else {return}
+//		switch type {
+//		case .insert:
+//			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
+//		//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
+//		case .delete:
+//			update?.deleteSection.insert(sectionIndex)
+//		//			children.remove(at: sectionIndex)
+//		default:
+//			break
+//		}
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-		guard update != nil else {return}
-		switch type {
-		case .insert:
-			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-		case .delete:
-			update?.deleteObject.append(indexPath!)
-		case .move:
-			if (sectionNode == nil && (children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) ||
-				(sectionNode != nil && (children[indexPath!.section].children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) {
-				update?.deleteObject.append(indexPath!)
-				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-			}
-		case .update:
-			update?.update[newIndexPath!] = anObject
-		}
+//		guard update != nil else {return}
+//		switch type {
+//		case .insert:
+//			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+//		case .delete:
+//			update?.deleteObject.append(indexPath!)
+//		case .move:
+//			if (sectionNode == nil && (children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) ||
+//				(sectionNode != nil && (children[indexPath!.section].children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) {
+//				update?.deleteObject.append(indexPath!)
+//				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+//			}
+//		case .update:
+//			update?.update[newIndexPath!] = anObject
+//		}
 	}
 	
 	
 	func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-		guard let update = update else {return}
+		/*guard let update = update else {return}
 		var children = self.children
+
 		if sectionNode == nil {
 			for i in update.deleteObject.sorted(by: > ) {
 				children.remove(at: i.row)
@@ -776,26 +777,35 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 			}
 		}
 		else {
+			for i in update.deleteObject.filter({!update.deleteSection.contains($0.section)}).sorted(by: > ) {
+				children[i.section].children.remove(at: i.row)
+			}
 			if !update.deleteSection.isEmpty {
 				children.remove(at: update.deleteSection)
 			}
 			for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
 				children.insert(i.value, at: i.key)
 			}
-			for i in update.deleteObject.sorted(by: > ) {
-				children[i.section].children.remove(at: i.row)
-			}
-			for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
+
+			for (i, value) in update.insertObject.filter({update.insertSection[$0.key.section] == nil}).sorted(by: {$0.key < $1.key}) {
 				children[i.section].children.insert(value, at: i.row)
 			}
 		}
-		self.children = children
+		self.children = children*/
+		
+		if let sectionNode = self.sectionNode {
+			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
+		}
+		else {
+			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
+		}
+
 		treeController?.endUpdates()
 		//		update.update.forEach {
 		//			let node = children[$0.key.row]
 		//			self.treeController?.reloadCells(for: [node], with: .none)
 		//		}
-		self.update = nil
+//		self.update = nil
 	}
 }
 
