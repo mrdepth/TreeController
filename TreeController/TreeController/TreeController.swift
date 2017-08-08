@@ -74,6 +74,7 @@ open class TreeNode: NSObject {
 		super.init()
 	}
 	
+	
 	private var _children: [TreeNode]?
 	public var children: [TreeNode] {
 		get {
@@ -87,12 +88,11 @@ open class TreeNode: NSObject {
 		}
 		
 		set {
+			
 			let from = _children
 			let to = newValue
-			
-			if from != nil, let treeController = treeController, let index = flatIndex {
-				let size = self.size
-				
+
+			if !isInBatch {
 				if let from = _children {
 					var set = Set(from)
 					for a in to {
@@ -102,22 +102,29 @@ open class TreeNode: NSObject {
 					}
 				}
 				
-				
-				_children = to
-				let range = index..<(index + size)
-				let to = flattened
-				if range.count < TransitionItemsLimit && to.count < TransitionItemsLimit {
-					treeController.replaceNodes(at: range, with: to)
-				}
-				else {
-					UIView.performWithoutAnimation {
+				if from != nil, let treeController = treeController, let index = flatIndex {
+					let size = self.size
+					
+					_children = to
+					let range = index..<(index + size)
+					let to = flattened
+					if range.count < TransitionItemsLimit && to.count < TransitionItemsLimit {
 						treeController.replaceNodes(at: range, with: to)
 					}
+					else {
+						UIView.performWithoutAnimation {
+							treeController.replaceNodes(at: range, with: to)
+						}
+					}
+				}
+				else {
+					_children = to
 				}
 			}
 			else {
 				_children = to
 			}
+			
 			for child in from ?? [] {
 				child.parent = nil
 			}
@@ -264,6 +271,50 @@ open class TreeNode: NSObject {
 	
 	fileprivate var indentationLevel: Int {
 		return parent?.isViewable == true ? parent!.indentationLevel + 1 : parent?.indentationLevel ?? 0
+	}
+	
+	private var batchUpdatesCounter: Int = 0
+	private var isInBatch: Bool {
+		return batchUpdatesCounter > 0 || parent?.isInBatch ?? false
+	}
+	
+	func performBatchUpdates(_ updates: () -> Void) {
+		if !isInBatch {
+			let from = _children
+			let size = self.size
+			
+			batchUpdatesCounter += 1
+			updates()
+			batchUpdatesCounter -= 1
+			
+			let to = _children ?? []
+			if let from = from {
+				var set = Set(from)
+				for a in to {
+					if let b = set.remove(a) {
+						a.update(from: b)
+					}
+				}
+			}
+			
+			if from != nil, let treeController = treeController, let index = flatIndex {
+				let range = index..<(index + size)
+				let to = flattened
+				if range.count < TransitionItemsLimit && to.count < TransitionItemsLimit {
+					treeController.replaceNodes(at: range, with: to)
+				}
+				else {
+					UIView.performWithoutAnimation {
+						treeController.replaceNodes(at: range, with: to)
+					}
+				}
+			}
+		}
+		else {
+			batchUpdatesCounter += 1
+			updates()
+			batchUpdatesCounter -= 1
+		}
 	}
 }
 
@@ -714,91 +765,93 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 		}
 	}
 	
-//	private struct Update {
-//		var insertSection: [Int: TreeNode] = [:]
-//		var deleteSection = IndexSet()
-//		var insertObject: [IndexPath: TreeNode] = [:]
-//		var deleteObject = [IndexPath]()
-//		var moveObject: [IndexPath: IndexPath] = [:]
-//		var update: [IndexPath: Any] = [:]
-//	}
-//	private var update: Update?
+	private struct Update {
+		var insertSection: [Int: TreeNode] = [:]
+		var deleteSection = IndexSet()
+		var insertObject: [IndexPath: TreeNode] = [:]
+		var deleteObject = [IndexPath]()
+		var moveObject: [IndexPath: IndexPath] = [:]
+		var update: [IndexPath: Any] = [:]
+	}
+	private var update: Update?
 	
 	func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-		//		guard objectNode != nil else {return}
-//		self.update = Update()
+//		guard objectNode != nil else {return}
+		self.update = Update()
 		treeController?.beginUpdates()
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
-//		guard update != nil else {return}
-//		guard let sectionNode = self.sectionNode else {return}
-//		switch type {
-//		case .insert:
-//			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
-//		//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
-//		case .delete:
-//			update?.deleteSection.insert(sectionIndex)
-//		//			children.remove(at: sectionIndex)
-//		default:
-//			break
-//		}
+		guard update != nil else {return}
+		guard let sectionNode = self.sectionNode else {return}
+		switch type {
+		case .insert:
+			update?.insertSection[sectionIndex] = sectionNode.init(section: sectionInfo, objectNode: self.objectNode)
+		//			children.insert(sectionNode.init(section: sectionInfo, objectNode: self.objectNode), at: sectionIndex)
+		case .delete:
+			update?.deleteSection.insert(sectionIndex)
+		//			children.remove(at: sectionIndex)
+		default:
+			break
+		}
 	}
 	
 	func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-//		guard update != nil else {return}
-//		switch type {
-//		case .insert:
-//			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-//		case .delete:
-//			update?.deleteObject.append(indexPath!)
-//		case .move:
-//			if (sectionNode == nil && (children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) ||
-//				(sectionNode != nil && (children[indexPath!.section].children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) {
-//				update?.deleteObject.append(indexPath!)
-//				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
-//			}
-//		case .update:
-//			update?.update[newIndexPath!] = anObject
-//		}
+		guard update != nil else {return}
+		switch type {
+		case .insert:
+			update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+		case .delete:
+			update?.deleteObject.append(indexPath!)
+		case .move:
+			if (sectionNode == nil && (children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) ||
+				(sectionNode != nil && (children[indexPath!.section].children[indexPath!.row] as! FetchedResultsObjectNode<ResultType>).object === anObject as! ResultType) {
+				update?.deleteObject.append(indexPath!)
+				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
+			}
+		case .update:
+			update?.update[newIndexPath!] = anObject
+		}
 	}
 	
 	
 	func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-		/*guard let update = update else {return}
+		guard let update = update else {return}
 		var children = self.children
 
-		if sectionNode == nil {
-			for i in update.deleteObject.sorted(by: > ) {
-				children.remove(at: i.row)
+		performBatchUpdates {
+			if sectionNode == nil {
+				for i in update.deleteObject.sorted(by: > ) {
+					children.remove(at: i.row)
+				}
+				for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
+					children.insert(value, at: i.row)
+				}
 			}
-			for (i, value) in update.insertObject.sorted(by: {$0.key < $1.key}) {
-				children.insert(value, at: i.row)
+			else {
+				for i in update.deleteObject.filter({!update.deleteSection.contains($0.section)}).sorted(by: > ) {
+					children[i.section].children.remove(at: i.row)
+				}
+				if !update.deleteSection.isEmpty {
+					children.remove(at: update.deleteSection)
+				}
+				for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
+					children.insert(i.value, at: i.key)
+				}
+				
+				for (i, value) in update.insertObject.filter({update.insertSection[$0.key.section] == nil}).sorted(by: {$0.key < $1.key}) {
+					children[i.section].children.insert(value, at: i.row)
+				}
 			}
+			self.children = children
 		}
-		else {
-			for i in update.deleteObject.filter({!update.deleteSection.contains($0.section)}).sorted(by: > ) {
-				children[i.section].children.remove(at: i.row)
-			}
-			if !update.deleteSection.isEmpty {
-				children.remove(at: update.deleteSection)
-			}
-			for i in update.insertSection.sorted(by: {$0.key < $1.key}) {
-				children.insert(i.value, at: i.key)
-			}
-
-			for (i, value) in update.insertObject.filter({update.insertSection[$0.key.section] == nil}).sorted(by: {$0.key < $1.key}) {
-				children[i.section].children.insert(value, at: i.row)
-			}
-		}
-		self.children = children*/
 		
-		if let sectionNode = self.sectionNode {
-			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
-		}
-		else {
-			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
-		}
+//		if let sectionNode = self.sectionNode {
+//			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
+//		}
+//		else {
+//			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
+//		}
 
 		treeController?.endUpdates()
 		//		update.update.forEach {
