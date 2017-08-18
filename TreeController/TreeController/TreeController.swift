@@ -187,28 +187,11 @@ open class TreeNode: NSObject {
 		}
 	}
 	
-//	fileprivate var _isSelected: Bool = false
-//	open var isSelected: Bool {
-//		get {
-//			return _isSelected
-//		}
-//		set {
-//			_isSelected = newValue
-//			if newValue {
-//				treeController?.selectCell(for: self, animated: true, scrollPosition: .none)
-//			}
-//			else {
-//				treeController?.deselectCell(for: self, animated: true)
-//			}
-//		}
-//	}
-	
 	open func loadChildren() {
 	}
 	
 	open func update(from node: TreeNode) {
 		isExpanded = node.isExpanded
-//		isSelected = node.isSelected
 		estimatedHeight = node.estimatedHeight
 		
 		if let to = _children, let from = node._children {
@@ -220,6 +203,14 @@ open class TreeNode: NSObject {
 			}
 		}
 		
+	}
+	
+	open var separatorInset: UIEdgeInsets {
+		return parent?.separatorInset ?? .zero
+	}
+	
+	var isLeaf: Bool {
+		return parent?.children.last === self
 	}
 	
 	private weak var _treeController: TreeController?
@@ -269,7 +260,7 @@ open class TreeNode: NSObject {
 		}
 	}
 	
-	fileprivate var indentationLevel: Int {
+	open var indentationLevel: Int {
 		return parent?.isViewable == true ? parent!.indentationLevel + 1 : parent?.indentationLevel ?? 0
 	}
 	
@@ -442,6 +433,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		let node = flattened[indexPath.row]
 		let cell = tableView.dequeueReusableCell(withIdentifier: node.cellIdentifier!, for: indexPath)
 		cell.indentationLevel = node.indentationLevel
+		cell.separatorInset = node.separatorInset
 		
 		if let cell = cell as? Expandable {
 			cell.setExpanded(node.isExpanded, animated: false)
