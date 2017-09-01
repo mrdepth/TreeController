@@ -128,9 +128,19 @@ open class TreeNode: NSObject {
 			for child in from ?? [] {
 				child.parent = nil
 			}
-			for child in to {
-				child.parent = self
+			
+			if let treeController = self.treeController {
+				for child in to {
+					child.parent = self
+					child.didMoveToTreeController(treeController)
+				}
 			}
+			else {
+				for child in to {
+					child.parent = self
+				}
+			}
+			
 		}
 	}
 	
@@ -141,7 +151,12 @@ open class TreeNode: NSObject {
 		}
 		set {
 			_treeController = newValue
+			didMoveToTreeController(treeController)
 		}
+	}
+	
+	open func didMoveToTreeController(_ treeController: TreeController?) {
+		children.forEach {$0.didMoveToTreeController(treeController)}
 	}
 	
 	open var isExpandable: Bool = true
