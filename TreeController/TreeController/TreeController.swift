@@ -76,6 +76,7 @@ open class TreeNode: NSObject {
 	
 	
 	private var _children: [TreeNode]?
+	
 	public var children: [TreeNode] {
 		get {
 			if _children == nil {
@@ -89,10 +90,25 @@ open class TreeNode: NSObject {
 		
 		set {
 			
-			let from = _children
-			let to = newValue
+			self.performBatchUpdates {
+				let from = _children
+				let to = newValue
+				
+				from?.forEach {$0.parent = nil}
+				if let treeController = treeController {
+					to.forEach {
+						$0.parent = self
+						$0.willMoveToTreeController(treeController)
+					}
+				}
+				else {
+					to.forEach {$0.parent = self}
+				}
 
-			if !isInBatch {
+				_children = to
+			}
+
+			/*if !isInBatch {
 				if let from = _children {
 					var set = Set(from)
 					for a in to {
@@ -123,23 +139,15 @@ open class TreeNode: NSObject {
 			}
 			else {
 				_children = to
-			}
+			}*/
 			
-			for child in from ?? [] {
-				child.parent = nil
-			}
 			
-			if let treeController = self.treeController {
-				for child in to {
-					child.parent = self
-					child.didMoveToTreeController(treeController)
-				}
-			}
-			else {
-				for child in to {
-					child.parent = self
-				}
-			}
+//			if let treeController = self.treeController {
+//				for child in to {
+//					child.parent = self
+//					child.willMoveToTreeController(treeController)
+//				}
+//			}
 			
 		}
 	}
@@ -150,21 +158,22 @@ open class TreeNode: NSObject {
 			return _treeController ?? parent?.treeController
 		}
 		set {
+			willMoveToTreeController(newValue)
 			_treeController = newValue
-			didMoveToTreeController(treeController)
 		}
 	}
 	
-	open func didMoveToTreeController(_ treeController: TreeController?) {
-		children.forEach {$0.didMoveToTreeController(treeController)}
+	open func willMoveToTreeController(_ treeController: TreeController?) {
+		children.forEach {$0.willMoveToTreeController(treeController)}
 	}
 	
-	open var isExpandable: Bool = true
+	open var isExpandable: Bool = false
 	open var canMove: Bool = false
 	
 	private var removeRange: CountableRange<Int>?
 	open var isExpanded: Bool = true {
 		willSet {
+			guard !isInBatch else {return}
 			guard treeController != nil else {return}
 			guard isExpanded else {return}
 			guard newValue != isExpanded else {return}
@@ -177,6 +186,7 @@ open class TreeNode: NSObject {
 			self.removeRange = range
 		}
 		didSet {
+			guard !isInBatch else {return}
 			if let range = removeRange {
 				treeController?.removeNodes(at: range)
 				self.removeRange = nil
@@ -287,7 +297,12 @@ open class TreeNode: NSObject {
 	func performBatchUpdates(_ updates: () -> Void) {
 		if !isInBatch {
 			let from = _children
-			let size = self.size
+			
+			var size = isViewable ? 1 : 0
+			if let from = from, !isExpandable || isExpanded || !isViewable {
+				size = from.reduce(size, {$0 + $1.size})
+			}
+
 			
 			batchUpdatesCounter += 1
 			updates()
