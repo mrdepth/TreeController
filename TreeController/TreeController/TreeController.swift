@@ -832,7 +832,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 				update?.insertObject[newIndexPath!] = objectNode.init(object: anObject as! ResultType)
 			}
 		case .update:
-			update?.update[newIndexPath!] = anObject
+			update?.update[indexPath!] = anObject
 		}
 	}
 	
