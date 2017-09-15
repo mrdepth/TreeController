@@ -861,7 +861,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 					children.insert(i.value, at: i.key)
 				}
 				
-				for (i, value) in update.insertObject.filter({update.insertSection[$0.key.section] == nil}).sorted(by: {$0.key < $1.key}) {
+				for (i, value) in Array(update.insertObject.filter({update.insertSection[$0.key.section] == nil})).sorted(by: {$0.key < $1.key}) {
 					children[i.section].children.insert(value, at: i.row)
 				}
 			}
