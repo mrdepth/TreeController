@@ -337,6 +337,12 @@ open class TreeNode: NSObject {
 			batchUpdatesCounter -= 1
 		}
 	}
+	
+	func willDisplay(cell: UITableViewCell) {
+	}
+	
+	func didEndDisplaying(cell: UITableViewCell) {
+	}
 }
 
 @objc public protocol TreeControllerDelegate: UIScrollViewDelegate {
@@ -581,6 +587,14 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	public func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		let node = flattened[indexPath.row]
 		node.estimatedHeight = cell.bounds.size.height
+		node.willDisplay(cell: cell)
+		cell.willDisplay()
+	}
+	
+	public func tableView(_ tableView: UITableView, didEndDisplaying cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+		let node = flattened[indexPath.row]
+		node.didEndDisplaying(cell: cell)
+		cell.didEndDisplaying()
 	}
 	
 	//MARK: - UIScrollViewDelegate
@@ -922,4 +936,13 @@ class FetchedResultsObjectNode<ResultType: NSFetchRequestResult>: TreeNode {
 		return (object as? FetchedResultsObjectNode<ResultType>)?.hashValue == hashValue
 	}
 	
+}
+
+extension UITableViewCell {
+	
+	@objc func willDisplay() {
+	}
+	
+	@objc func didEndDisplaying() {
+	}
 }
