@@ -406,7 +406,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		return IndexPath(row: index, section: 0)
 	}
 	
-	@nonobjc public func node(for indexPath: IndexPath) -> TreeNode? {
+	public func node(for indexPath: IndexPath) -> TreeNode? {
 		return flattened[indexPath.row]
 	}
 	
