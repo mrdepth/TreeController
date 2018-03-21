@@ -11,49 +11,46 @@ import CoreData
 
 private let TransitionItemsLimit = 100
 
-public enum EditAction {
-	case insert(Int)
-	case delete(Int)
-	case move(Int, Int)
-	case update(Int, Int)
+public enum EditAction<Element: Hashable> {
+	case insert(Int, Element)
+	case delete(Int, Element)
+	case move(Int, Int, Element)
+	case update(Int, Int, Element)
 }
 
 
-extension Array where Element == TreeNode {
+extension Array where Element: Hashable {
 	
-	func editDistance(from: Array<Element>, handler: (EditAction) -> Void) {
-		var to = self.enumerated().map{$0}
-		let from = from.enumerated().map{$0}
+	public func diff(from: Array<Element>) -> FlattenSequence<[[EditAction<Element>]]> {
+		var to = self.enumerated().map{(offset: $0.offset, element: $0.element, hash: $0.element.hashValue)}
+		let from = from.enumerated().map{(offset: $0.offset, element: $0.element, hash: $0.element.hashValue)}
 		
-		var updated: [EditAction] = []
-		var removed: [EditAction] = []
-		var moved: [EditAction] = []
+		var updated: [EditAction<Element>] = []
+		var removed: [EditAction<Element>] = []
+		var moved: [EditAction<Element>] = []
 		
 		for a in from {
-			if let j = to.index(where: {$0.element == a.element}) {
+			if let j = to.index(where: {$0.hash == a.hash && $0.element == a.element}) {
 				let b = to[j]
 				if j == 0 {
-					updated.append(.update(a.offset, b.offset))
+					updated.append(.update(a.offset, b.offset, b.element))
 				}
 				else {
-					moved.append(.move(a.offset, b.offset))
+					moved.append(.move(a.offset, b.offset, b.element))
 				}
 				to.remove(at: j)
 			}
 			else {
-				removed.append(.delete(a.offset))
+				removed.append(.delete(a.offset, a.element))
 			}
 		}
 		
-		let inserted = to.map {EditAction.insert($0.offset)}
-		
-		[removed, inserted, moved, updated].forEach {
-			$0.forEach {
-				handler($0)
-			}
-		}
+		let inserted = to.map {EditAction.insert($0.offset, $0.element)}
+		return [removed, inserted, moved, updated].joined()
 	}
-	
+}
+
+extension Array {
 	mutating func remove(at: IndexSet) {
 		var copy = self
 		for i in at.reversed() {
@@ -704,37 +701,24 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 		let animation = UIView.areAnimationsEnabled ? UITableViewRowAnimation.fade : .none
 		
 		if UIView.areAnimationsEnabled {
-			nodes.editDistance(from: from) { action in
+			nodes.diff(from: from).forEach { action in
 				switch action {
-				case let .insert(new):
+				case let .insert(new, _):
 					let indexPath = IndexPath(row: start + new, section: 0)
-//					if nodes[new].isSelected {
-//						selections.append(indexPath)
-//					}
 					tableView?.insertRows(at: [indexPath], with: animation)
-				case let .delete(old):
+				case let .delete(old, _):
 					tableView?.deleteRows(at: [IndexPath(row: start + old, section: 0)], with: animation)
-				case let .move(old, new):
+				case let .move(old, new, node):
 					let oldIndexPath = IndexPath(row: start + old, section: 0)
 					let newIndexPath = IndexPath(row: start + new, section: 0)
-					
-					let node = nodes[new]
-//					if node.isSelected {
-//						selections.append(newIndexPath)
-//					}
 					
 					if let cell = tableView?.cellForRow(at: oldIndexPath) {
 						node.configure(cell: cell)
 					}
 					
 					tableView?.moveRow(at: oldIndexPath, to: newIndexPath)
-				case let .update(old, new):
+				case let .update(old, _, node):
 					let oldIndexPath = IndexPath(row: start + old, section: 0)
-//					let newIndexPath = IndexPath(row: start + new, section: 0)
-					let node = nodes[new]
-//					if node.isSelected {
-//						selections.append(newIndexPath)
-//					}
 					
 					if let cell = tableView?.cellForRow(at: oldIndexPath) {
 						node.configure(cell: cell)
