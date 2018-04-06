@@ -408,7 +408,7 @@ open class TreeController: NSObject, UITableViewDelegate, UITableViewDataSource 
 	}
 	
 	public func reloadCells(for nodes: [TreeNode], with animation: UITableViewRowAnimation = .fade) {
-		let indexPaths = nodes.flatMap({$0.flatIndex == nil ? nil : IndexPath(row: $0.flatIndex!, section:0)})
+		let indexPaths = nodes.compactMap({$0.flatIndex == nil ? nil : IndexPath(row: $0.flatIndex!, section:0)})
 		if (indexPaths.count > 0) {
 			tableView?.reloadRows(at: indexPaths, with: animation)
 		}
@@ -779,7 +779,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
 		}
 		else {
-			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
+			children = resultsController.fetchedObjects?.compactMap {objectNode.init(object: $0)} ?? []
 		}
 	}
 	
@@ -868,7 +868,7 @@ class FetchedResultsNode<ResultType: NSFetchRequestResult>: TreeNode, NSFetchedR
 //			children = resultsController.sections?.map {sectionNode.init(section: $0, objectNode: self.objectNode)} ?? []
 //		}
 //		else {
-//			children = resultsController.fetchedObjects?.flatMap {objectNode.init(object: $0)} ?? []
+//			children = resultsController.fetchedObjects?.compactMap {objectNode.init(object: $0)} ?? []
 //		}
 
 		treeController?.endUpdates()
@@ -890,7 +890,7 @@ class FetchedResultsSectionNode<ResultType: NSFetchRequestResult> : TreeNode {
 	}
 	
 	override func loadChildren() {
-		children = section.objects?.flatMap {objectNode.init(object: $0 as! ResultType)} ?? []
+		children = section.objects?.compactMap {objectNode.init(object: $0 as! ResultType)} ?? []
 	}
 	
 	override var hashValue: Int {
