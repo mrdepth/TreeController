@@ -79,17 +79,14 @@ extension ViewController: TreeControllerDelegate {
 	func treeController<T>(_ treeController: TreeController, configure cell: UITableViewCell, for item: T) where T : TreeItem {
 		guard let cell = cell as? Cell else {return}
 		cell.expandMark?.text = treeController.isItemExpanded(item) ? "[-]" : "[+]"
-		
+		cell.indentationConstraint?.constant = 8 * CGFloat(treeController.indentationLevel(for: item) + 1)
 		switch item {
 		case let item as Country:
 			cell.titleLabel.text = item.name
-			cell.indentationConstraint?.constant = 8
 		case let item as Country.Region:
 			cell.titleLabel.text = item.name
-			cell.indentationConstraint?.constant = 16
 		case let item as String:
 			cell.titleLabel.text = item
-			cell.indentationConstraint?.constant = 24
 		default:
 			break
 		}
