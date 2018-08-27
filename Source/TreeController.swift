@@ -15,7 +15,7 @@ func hashCombine(seed: inout Int, value: Int) {
 }
 
 
-extension Array: Hashable, Diffable, TreeItem where Element: TreeItem {
+extension Array: Diffable, TreeItem where Element: TreeItem {
 	public typealias Child = Element
 	public var children: [Element]? {
 		return self
@@ -58,17 +58,26 @@ public struct AnyTreeItem: TreeItem {
 		return box.children
 	}
 	
-	public var hashValue: Int
-	public var diffIdentifier: AnyHashable
+	public var hashValue: Int {
+		return box.hashValue
+	}
+	
+	public var diffIdentifier: AnyHashable {
+		return box.diffIdentifier
+	}
 	
 	public init<T: TreeItem>(_ base: T) {
 		self.box = ConcreteTreeItemBox(base: base)
-		self.hashValue = base.hashValue
-		self.diffIdentifier = base.diffIdentifier
+//		self.hashValue = base.hashValue
+//		self.diffIdentifier = base.diffIdentifier
 	}
 	
 	public static func == (lhs: AnyTreeItem, rhs: AnyTreeItem) -> Bool {
 		return lhs.box.isEqual(rhs.box)
+	}
+	
+	public var base: Any {
+		return box.unbox()
 	}
 }
 
@@ -124,17 +133,17 @@ open class TreeController: NSObject {
 	}
 	
 	public struct RowAnimation: Equatable {
-		public var insertion: UITableViewRowAnimation
-		public var deletion: UITableViewRowAnimation
-		public var update: UITableViewRowAnimation
+		public var insertion: UITableView.RowAnimation
+		public var deletion: UITableView.RowAnimation
+		public var update: UITableView.RowAnimation
 		
-		public init(insertion: UITableViewRowAnimation, deletion: UITableViewRowAnimation, update: UITableViewRowAnimation) {
+		public init(insertion: UITableView.RowAnimation, deletion: UITableView.RowAnimation, update: UITableView.RowAnimation) {
 			self.insertion = insertion
 			self.deletion = deletion
 			self.update = update
 		}
 		
-		public init(_ animation: UITableViewRowAnimation) {
+		public init(_ animation: UITableView.RowAnimation) {
 			insertion = animation
 			deletion = animation
 			update = animation
@@ -266,7 +275,7 @@ open class TreeController: NSObject {
 		return tableView?.cellForRow(at: indexPath)
 	}
 	
-	open func reloadRow<T: TreeItem>(for item: T, with animation: UITableViewRowAnimation) {
+	open func reloadRow<T: TreeItem>(for item: T, with animation: UITableView.RowAnimation) {
 		guard let indexPath = indexPath(for: item) else {return}
 		tableView?.reloadRows(at: [indexPath], with: animation)
 	}
@@ -275,7 +284,7 @@ open class TreeController: NSObject {
 		return nodes[item.diffIdentifier]?.flags.contains(.isExpanded) == true
 	}
 	
-	open func selectCell<T: TreeItem>(for item: T, animated: Bool, scrollPosition: UITableViewScrollPosition) {
+	open func selectCell<T: TreeItem>(for item: T, animated: Bool, scrollPosition: UITableView.ScrollPosition) {
 		guard let indexPath = indexPath(for: item) else {return}
 		tableView?.selectRow(at: indexPath, animated: animated, scrollPosition: scrollPosition)
 	}
@@ -442,8 +451,10 @@ extension TreeController: UITableViewDelegate {
 
 fileprivate protocol TreeItemBox {
 	func unbox<T: TreeItem>() -> T?
+	func unbox() -> Any
 	var children: [AnyTreeItem]? {get}
 	
+	var hashValue: Int {get}
 	var diffIdentifier: AnyHashable {get}
 	func isEqual(_ other: TreeItemBox) -> Bool
 	func isEqual<T: TreeItem>(_ other: T) -> Bool
@@ -464,6 +475,14 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 	
 	func unbox<T>() -> T? where T : TreeItem {
 		return base as? T
+	}
+	
+	func unbox() -> Any {
+		return base
+	}
+	
+	var hashValue: Int {
+		return base.hashValue
 	}
 	
 	var diffIdentifier: AnyHashable {
