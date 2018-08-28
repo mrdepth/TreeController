@@ -67,9 +67,16 @@ public struct AnyTreeItem: TreeItem {
 	}
 	
 	public init<T: TreeItem>(_ base: T) {
-		self.box = ConcreteTreeItemBox(base: base)
-//		self.hashValue = base.hashValue
-//		self.diffIdentifier = base.diffIdentifier
+		if let base = base as? AnyTreeItem {
+			self = base
+		}
+		else {
+			self.box = ConcreteTreeItemBox(base: base)
+		}
+	}
+	
+	public init(_ base: AnyTreeItem) {
+		self = base
 	}
 	
 	public static func == (lhs: AnyTreeItem, rhs: AnyTreeItem) -> Bool {
@@ -79,6 +86,7 @@ public struct AnyTreeItem: TreeItem {
 	public var base: Any {
 		return box.unbox()
 	}
+	
 }
 
 public protocol TreeControllerDelegate {
@@ -427,7 +435,7 @@ extension TreeController: UITableViewDelegate {
 	open func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
 		let item = flattened![indexPath.section][indexPath.item]
 		item.box.treeControllerDidDeselectRow(self)
-		handleRowSelection(for: item, at: indexPath)
+//		handleRowSelection(for: item, at: indexPath)
 	}
 	
 	open func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int {
