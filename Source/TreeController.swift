@@ -8,33 +8,33 @@
 
 import UIKit
 
-let salt = Int(truncatingIfNeeded: 0x9e3779b9 as UInt64)
+//let salt = Int(truncatingIfNeeded: 0x9e3779b9 as UInt64)
+//
+//func hashCombine(seed: inout Int, value: Int) {
+//	seed ^= value &+ salt &+ (seed << 6) &+ (seed >> 2);
+//}
 
-func hashCombine(seed: inout Int, value: Int) {
-	seed ^= value &+ salt &+ (seed << 6) &+ (seed >> 2);
-}
 
-
-extension Array: Diffable, TreeItem where Element: TreeItem {
+/*extension Array: Diffable, TreeItem where Element: TreeItem {
 	public typealias Child = Element
 	public var children: [Element]? {
 		return self
 	}
 	
-	public var hashValue: Int {
-		return reduce(into: 0) {
-			hashCombine(seed: &$0, value: $1.hashValue)
-		}
-	}
+//	public var hashValue: Int {
+//		return reduce(into: 0) {
+//			hashCombine(seed: &$0, value: $1.hashValue)
+//		}
+//	}
 	
 	public typealias DiffIdentifier = Int
 	public var diffIdentifier: Int {
 		return 0
 	}
-}
+}*/
 
-extension Int: TreeItem {}
-extension String: TreeItem {}
+//extension Int: TreeItem {}
+//extension String: TreeItem {}
 
 public protocol TreeItem: Hashable, Diffable {
 	associatedtype Child: TreeItem = TreeItemNull
@@ -178,16 +178,17 @@ open class TreeController: NSObject {
 	private var sections: [AnyTreeItem]?
 	private var flattened: [[AnyTreeItem]]?
 	private var nodes: [AnyHashable: Node] = [:]
+	private var root: AnyHashable?
 	
-	open func reload<T: TreeItem>(_ content: [T], options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) {
-		
+	open func reloadData<T: Collection>(_ data: T, options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) where T.Element: TreeItem {
+		root = nil
 		let noAnimation = animation == .none
 		
 		if noAnimation {
 			nodes.removeAll()
 		}
-		
-		let sections = content.map{AnyTreeItem($0)}
+
+		let sections = data.map{AnyTreeItem($0)}
 		let flattened = sections.enumerated().map { (i, section) -> [AnyTreeItem] in
 			var array = [AnyTreeItem]()
 			flatten(section, into: &array, from: IndexPath(row: 0, section: i), level: 0)
@@ -195,7 +196,7 @@ open class TreeController: NSObject {
 		}
 		
 		
-		if animation == .none {
+		if noAnimation {
 			self.sections = sections
 			self.flattened = flattened
 			tableView?.reloadData()
@@ -204,7 +205,7 @@ open class TreeController: NSObject {
 		else {
 			let oldSections = self.sections
 			let oldFlattened = self.flattened
-			let sections = content.map{AnyTreeItem($0)}
+			let sections = data.map{AnyTreeItem($0)}
 			let flattened = sections.enumerated().map { (i, section) -> [AnyTreeItem] in
 				var array = [AnyTreeItem]()
 				flatten(section, into: &array, from: IndexPath(row: 0, section: i), level: 0)
@@ -278,6 +279,69 @@ open class TreeController: NSObject {
 		}
 	}
 	
+	open func reloadData<T: TreeItem>(from item: T, options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) {
+		if let children = item.children {
+			reloadData(children, options: options, with: animation, completion: completion)
+		}
+		else {
+			reloadData(Array<T.Child>(), options: options, with: animation, completion: completion)
+		}
+		root = AnyHashable(item)
+	}
+
+	open func update<T: TreeItem>(contentsOf item: T, options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) {
+		if AnyHashable(item) == root {
+			reloadData(from: item, options: options, with: animation, completion: completion)
+		}
+		else {
+			guard self.flattened != nil, let node = self.nodes[AnyHashable(item)] else {
+				completion?()
+				return
+			}
+			
+			let noAnimation = animation == .none
+			
+			let range = node.range
+			
+			var flattened = [AnyTreeItem]()
+			flatten(AnyTreeItem(item), into: &flattened, from: IndexPath(row: node.range.lowerBound, section: node.section), level: 0)
+			
+			
+			if noAnimation {
+				self.flattened?[node.section].replaceSubrange(range, with: flattened)
+				tableView?.reloadData()
+				completion?()
+			}
+			else {
+				let oldFlattened = self.flattened?[node.section][range]
+				
+				if options.contains(.concurent) {
+					DispatchQueue.global(qos: .utility).async {
+						var diff = Diff(oldFlattened?.map{$0.diffIdentifier} ?? [], flattened.map{$0.diffIdentifier})
+						diff.shift(by: range.lowerBound)
+						
+						DispatchQueue.main.async {
+							self.tableView?.beginUpdates()
+							self.tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
+							self.flattened?[node.section].replaceSubrange(range, with: flattened)
+							self.tableView?.endUpdates()
+							completion?()
+						}
+					}
+				}
+				else {
+					tableView?.beginUpdates()
+					var diff = Diff(oldFlattened?.map{$0.diffIdentifier} ?? [], flattened.map{$0.diffIdentifier})
+					diff.shift(by: range.lowerBound)
+					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
+					self.flattened?[node.section].replaceSubrange(range, with: flattened)
+					tableView?.endUpdates()
+					completion?()
+				}
+			}
+		}
+	}
+	
 	open func cell<T: TreeItem>(for item: T) -> UITableViewCell? {
 		guard let indexPath = indexPath(for: item) else {return nil}
 		return tableView?.cellForRow(at: indexPath)
@@ -316,8 +380,11 @@ extension TreeController {
 		}
 		var flags: Flags
 		var estimatedRowHeight: CGFloat?
-		var indexPath: IndexPath?
+		var section: Int = 0
+		var row: Int?
+//		var indexPath: IndexPath?
 		var level: Int
+		var range: Range<Int> = 0..<0
 		let cellIdentifier: String?
 		init(flags: Flags, cellIdentifier: String?, level: Int) {
 			self.flags = flags
@@ -342,54 +409,50 @@ extension TreeController {
 		return node
 	}
 	
-	private func flatten(_ item: AnyTreeItem, into: inout [AnyTreeItem], from indexPath: IndexPath, level: Int) {
+	@discardableResult
+	private func flatten(_ item: AnyTreeItem, into: inout [AnyTreeItem], from indexPath: IndexPath, level: Int) -> Range<Int> {
 		var level = level
 		let node = nodes[item.diffIdentifier] ?? newNode(for: item, level: level)
+		node.section = indexPath.section
 		var indexPath = indexPath
+
 		if node.cellIdentifier != nil {
-			node.indexPath = indexPath
+			node.row = indexPath.row
+			node.range = Range(indexPath.row...indexPath.row)
 			into.append(item)
 			indexPath.row += 1
 			level += 1
 		}
+		else {
+			node.range = indexPath.row..<indexPath.row
+		}
 		if node.flags.contains(.isExpanded) || node.cellIdentifier == nil {
 			item.children?.forEach {
 				let before = into.count
-				flatten($0, into: &into, from: indexPath, level: level)
+				
+				
+				node.range = node.range.lowerBound..<flatten($0, into: &into, from: indexPath, level: level).upperBound
+				
 				let after = into.count
 				indexPath.row += after - before
 			}
 		}
-	}
-	
-	private func numberOfItems(in item: AnyTreeItem, level: Int) -> Int {
-		var level = level
-		let node = nodes[item.diffIdentifier] ?? newNode(for: item, level: level)
-		var count = 0
-		if node.cellIdentifier != nil {
-			count += 1
-			level += 1
-		}
-		if node.flags.contains(.isExpanded) || node.cellIdentifier == nil {
-			item.children?.forEach {
-				count += numberOfItems(in: $0, level: level)
-			}
-		}
-		return count
+		return node.range
 	}
 	
 	private func indexPath<T: TreeItem>(for item: T) -> IndexPath? {
-		return nodes[item.diffIdentifier]?.indexPath
+		guard let node = nodes[item.diffIdentifier], let row = node.row else {return nil}
+		return IndexPath(row: row, section: node.section)
 	}
 	
 	private func handleRowSelection(for item: AnyTreeItem, at indexPath: IndexPath) {
 		let node = nodes[item.diffIdentifier]!
 		if node.flags.contains(.isExpandable) {
 			if node.flags.contains(.isExpanded) {
-				let count = numberOfItems(in: item, level: node.level) - 1
-				let range = (indexPath.item + 1)..<(indexPath.item + 1 + count)
+				let range = node.range.dropFirst()
 				flattened?[indexPath.section].removeSubrange(range)
 				node.flags.remove(.isExpanded)
+				node.range = Range(node.range.lowerBound...node.range.lowerBound)
 				tableView?.deleteRows(at: range.map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
 				item.box.treeControllerDidCollapseItem(self)
 			}

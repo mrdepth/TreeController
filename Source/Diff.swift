@@ -176,3 +176,13 @@ extension Diff {
 		case index(Int)
 	}
 }
+
+extension Diff {
+	public mutating func shift(by delta: Int) {
+		deletions.shift(startingAt: 0, by: delta)
+		insertions.shift(startingAt: 0, by: delta)
+		moves = moves.map { ($0 + delta, $1 + delta) }
+		updates = updates.map { ($0 + delta, $1 + delta) }
+		indicesMap = indicesMap.map { ($0 + delta, $1 + delta) }
+	}
+}
