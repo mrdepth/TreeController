@@ -8,6 +8,26 @@
 
 import UIKit
 
+/*extension UITableView {
+	public typealias RowAnimation = UITableViewRowAnimation
+}
+
+extension UITableView {
+	public typealias ScrollPosition = UITableViewScrollPosition
+}
+
+extension Range {
+	func dropFirst() -> Range {
+		return self
+	}
+	
+	func map<T>(_ t: (Bound) -> T) -> [T] {
+		return []
+	}
+}*/
+
+
+
 //let salt = Int(truncatingIfNeeded: 0x9e3779b9 as UInt64)
 //
 //func hashCombine(seed: inout Int, value: Int) {
@@ -37,19 +57,19 @@ import UIKit
 //extension String: TreeItem {}
 
 public protocol TreeItem: Hashable, Diffable {
-	associatedtype Child: TreeItem = TreeItemNull
-	associatedtype Children: Collection = [Child] where Children.Element == Child
-	var children: Children? {get}
+	associatedtype Child: TreeItem// = TreeItemNull
+//	associatedtype Children: Collection = [Child] where Children.Element == Child
+	var children: [Child]? {get}
 }
 
 public struct TreeItemNull: TreeItem {
-	public var children: [TreeItemNull]?
+	public var children: [TreeItemNull]? { return nil }
 	public var hashValue: Int { return 0 }
 }
 
-public extension TreeItem where Child == TreeItemNull {
-	var children: [TreeItemNull]? {return nil}
-}
+//public extension TreeItem where Child == TreeItemNull {
+//	var children: [Child]? {return nil}
+//}
 
 public struct AnyTreeItem: TreeItem {
 	fileprivate var box: TreeItemBox

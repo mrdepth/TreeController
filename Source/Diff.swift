@@ -14,7 +14,7 @@ public protocol Diffable: Equatable {
 	var diffIdentifier: DiffIdentifier {get}
 }
 
-public extension Diffable where Self: Hashable {
+public extension Diffable where Self: Hashable, DiffIdentifier == Self {
 	var diffIdentifier: Self {
 		return self
 	}
@@ -34,6 +34,7 @@ extension UInt8: Diffable {}
 extension Double: Diffable {}
 extension Float: Diffable {}
 extension NSObject: Diffable {}
+extension AnyHashable: Diffable {}
 
 public struct Diff {
 	public enum Operation {

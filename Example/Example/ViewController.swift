@@ -8,13 +8,18 @@
 
 import UIKit
 import TreeController
+import CoreData
+
+extension String: TreeItem {
+	public var children: [TreeItemNull]? {return nil}
+}
 
 struct Country: Hashable, TreeItem {
 	typealias Child = Region
 	struct Region: Hashable, TreeItem {
 		typealias Child = String
 		var name: String
-		var children: Set<String>?
+		var children: [String]?
 		var hashValue: Int {
 			return name.hashValue
 		}
@@ -24,7 +29,7 @@ struct Country: Hashable, TreeItem {
 		
 		init(_ arg: (String, [String])) {
 			name = arg.0
-			children = Set(arg.1.sorted())
+			children = arg.1.sorted()
 		}
 	}
 	
@@ -65,7 +70,7 @@ class ViewController: UITableViewController {
 		let dic = try! JSONSerialization.jsonObject(with: Data.init(contentsOf: Bundle.main.url(forResource: "cities", withExtension: "json")!), options: []) as! [String: [String: [String]]]
 		let countries = dic.sorted{$0.key < $1.key}.map {Country($0)}
 		
-		treeController.reload(countries)
+		treeController.reloadData(countries)
 	}
 	
 }
@@ -113,4 +118,47 @@ extension ViewController: TreeControllerDelegate {
 		guard let cell = treeController.cell(for: item) as? Cell else {return}
 		cell.expandMark?.text = "[-]"
 	}
+}
+
+
+
+//extension Tree.Item {
+class FetchedResultsController<Result: NSManagedObject, Item: FetchedResultsItem<Result>>: TreeItem {
+	typealias Child = Item
+	static func == (lhs: FetchedResultsController<Result, Item>, rhs: FetchedResultsController<Result, Item>) -> Bool {
+		return false
+	}
+	var hashValue: Int {
+		return 0
+	}
+	var treeController: TreeController?
+	
+	var children: [Child]? {return nil}
+}
+
+class FetchedResultsItem<Result: NSManagedObject>: TreeItem {
+	
+	static func == (lhs: FetchedResultsItem<Result>, rhs: FetchedResultsItem<Result>) -> Bool {
+		return false
+	}
+
+	var hashValue: Int {
+		return 0
+	}
+
+	var children: [TreeItemNull]? {return nil}
+}
+//}
+
+
+class B: TreeItem {
+	static func == (lhs: B, rhs: B) -> Bool {
+		return false
+	}
+	
+	var hashValue: Int {
+		return 0
+	}
+	
+	var children: [TreeItemNull]? {return nil}
 }

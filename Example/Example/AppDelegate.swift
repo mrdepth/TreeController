@@ -7,6 +7,11 @@
 //
 
 import UIKit
+import CoreData
+
+/*extension UIApplication {
+	typealias LaunchOptionsKey = UIApplicationLaunchOptionsKey
+}*/
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -43,4 +48,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
-
