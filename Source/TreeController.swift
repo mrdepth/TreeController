@@ -8,57 +8,8 @@
 
 import UIKit
 
-/*extension UITableView {
-	public typealias RowAnimation = UITableViewRowAnimation
-}
-
-extension UITableView {
-	public typealias ScrollPosition = UITableViewScrollPosition
-}
-
-extension Range {
-	func dropFirst() -> Range {
-		return self
-	}
-	
-	func map<T>(_ t: (Bound) -> T) -> [T] {
-		return []
-	}
-}*/
-
-
-
-//let salt = Int(truncatingIfNeeded: 0x9e3779b9 as UInt64)
-//
-//func hashCombine(seed: inout Int, value: Int) {
-//	seed ^= value &+ salt &+ (seed << 6) &+ (seed >> 2);
-//}
-
-
-/*extension Array: Diffable, TreeItem where Element: TreeItem {
-	public typealias Child = Element
-	public var children: [Element]? {
-		return self
-	}
-	
-//	public var hashValue: Int {
-//		return reduce(into: 0) {
-//			hashCombine(seed: &$0, value: $1.hashValue)
-//		}
-//	}
-	
-	public typealias DiffIdentifier = Int
-	public var diffIdentifier: Int {
-		return 0
-	}
-}*/
-
-//extension Int: TreeItem {}
-//extension String: TreeItem {}
-
 public protocol TreeItem: Hashable, Diffable {
-	associatedtype Child: TreeItem// = TreeItemNull
-//	associatedtype Children: Collection = [Child] where Children.Element == Child
+	associatedtype Child: TreeItem = TreeItemNull
 	var children: [Child]? {get}
 }
 
@@ -67,11 +18,11 @@ public struct TreeItemNull: TreeItem {
 	public var hashValue: Int { return 0 }
 }
 
-//public extension TreeItem where Child == TreeItemNull {
-//	var children: [Child]? {return nil}
-//}
+public extension TreeItem where Child == TreeItemNull {
+	var children: [Child]? {return nil}
+}
 
-public struct AnyTreeItem: TreeItem {
+public struct AnyTreeItem: TreeItem, CustomReflectable {
 	fileprivate var box: TreeItemBox
 	
 	public var children: [AnyTreeItem]? {
@@ -107,6 +58,9 @@ public struct AnyTreeItem: TreeItem {
 		return box.unbox()
 	}
 	
+	public var customMirror: Mirror {
+		return Mirror(reflecting: base)
+	}
 }
 
 public protocol TreeControllerDelegate {
@@ -337,7 +291,7 @@ open class TreeController: NSObject {
 				
 				if options.contains(.concurent) {
 					DispatchQueue.global(qos: .utility).async {
-						var diff = Diff(oldFlattened?.map{$0.diffIdentifier} ?? [], flattened.map{$0.diffIdentifier})
+						var diff = Diff(oldFlattened?.map{$0} ?? [], flattened.map{$0})
 						diff.shift(by: range.lowerBound)
 						
 						DispatchQueue.main.async {
@@ -351,7 +305,7 @@ open class TreeController: NSObject {
 				}
 				else {
 					tableView?.beginUpdates()
-					var diff = Diff(oldFlattened?.map{$0.diffIdentifier} ?? [], flattened.map{$0.diffIdentifier})
+					var diff = Diff(oldFlattened ?? [], flattened)
 					diff.shift(by: range.lowerBound)
 					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
 					self.flattened?[node.section].replaceSubrange(range, with: flattened)
