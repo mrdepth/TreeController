@@ -22,7 +22,7 @@ public extension TreeItem where Child == TreeItemNull {
 	var children: [Child]? {return nil}
 }
 
-public struct AnyTreeItem: TreeItem, CustomReflectable {
+public struct AnyTreeItem: TreeItem {
 	fileprivate var box: TreeItemBox
 	
 	public var children: [AnyTreeItem]? {
@@ -58,9 +58,6 @@ public struct AnyTreeItem: TreeItem, CustomReflectable {
 		return box.unbox()
 	}
 	
-	public var customMirror: Mirror {
-		return Mirror(reflecting: base)
-	}
 }
 
 public protocol TreeControllerDelegate {
@@ -576,5 +573,23 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 	
 	func treeControllerDidCollapseItem(_ treeController: TreeController) -> Void {
 		treeController.delegate?.treeController(treeController, didCollapse: base)
+	}
+}
+
+extension TreeController {
+
+	open override var debugDescription: String {
+		var output = [String]()
+		func dump(_ item: AnyTreeItem, _ level: Int) {
+			output.append("\(String.init(repeating: " ", count: level * 4))- \(item.base) (\(item.diffIdentifier))")
+			item.children?.forEach {
+				dump($0, level + 1)
+			}
+		}
+		
+		sections?.forEach {
+			dump($0, 0)
+		}
+		return output.joined(separator: "\n")
 	}
 }
