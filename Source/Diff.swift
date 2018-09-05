@@ -33,7 +33,7 @@ extension Int8: Diffable {}
 extension UInt8: Diffable {}
 extension Double: Diffable {}
 extension Float: Diffable {}
-extension NSObject: Diffable {}
+//extension NSObject: Diffable {}
 extension AnyHashable: Diffable {}
 
 public struct Diff {
