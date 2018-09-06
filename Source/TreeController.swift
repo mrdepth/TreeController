@@ -8,6 +8,8 @@
 
 import UIKit
 
+typealias AnyDiffIdentifier = AnyHashable
+
 public protocol TreeItem: Hashable, Diffable {
 	associatedtype Child: TreeItem = TreeItemNull
 	var children: [Child]? {get}
@@ -54,9 +56,9 @@ public struct AnyTreeItem: TreeItem {
 		return lhs.box.isEqual(rhs.box)
 	}
 	
-	public var base: Any {
-		return box.unbox()
-	}
+//	public var base: Any {
+//		return box.unbox()
+//	}
 	
 }
 
@@ -69,6 +71,12 @@ public protocol TreeControllerDelegate {
 	func treeController<T: TreeItem> (_ treeController: TreeController, isExpanded item: T) -> Bool
 	func treeController<T: TreeItem> (_ treeController: TreeController, didExpand item: T) -> Void
 	func treeController<T: TreeItem> (_ treeController: TreeController, didCollapse item: T) -> Void
+	
+	func treeController<T: TreeItem> (_ treeController: TreeController, canEdit item: T) -> Bool
+	func treeController<T: TreeItem> (_ treeController: TreeController, editingStyleFor item: T) -> UITableViewCell.EditingStyle
+	func treeController<T: TreeItem> (_ treeController: TreeController, editActionsFor item: T) -> [UITableViewRowAction]?
+	func treeController<T: TreeItem> (_ treeController: TreeController, commit editingStyle: UITableViewCell.EditingStyle, for item: T) -> Void
+	func treeController<T: TreeItem> (_ treeController: TreeController, accessoryButtonTappedFor item: T) -> Void
 }
 
 extension TreeControllerDelegate {
@@ -78,6 +86,13 @@ extension TreeControllerDelegate {
 	public func treeController<T: TreeItem> (_ treeController: TreeController, isExpanded item: T) -> Bool { return true }
 	public func treeController<T: TreeItem> (_ treeController: TreeController, didExpand item: T) -> Void {}
 	public func treeController<T: TreeItem> (_ treeController: TreeController, didCollapse item: T) -> Void {}
+
+	public func treeController<T: TreeItem> (_ treeController: TreeController, canEdit item: T) -> Bool { return false }
+	public func treeController<T: TreeItem> (_ treeController: TreeController, editingStyleFor item: T) -> UITableViewCell.EditingStyle { return .none }
+	public func treeController<T: TreeItem> (_ treeController: TreeController, editActionsFor item: T) -> [UITableViewRowAction]? { return nil }
+	public func treeController<T: TreeItem> (_ treeController: TreeController, commit editingStyle: UITableViewCell.EditingStyle, for item: T) -> Void {}
+	public func treeController<T: TreeItem> (_ treeController: TreeController, accessoryButtonTappedFor item: T) -> Void {}
+
 }
 
 
@@ -148,10 +163,10 @@ open class TreeController: NSObject {
 		}
 	}
 	
-	private var sections: [AnyTreeItem]?
-	private var flattened: [[AnyTreeItem]]?
-	private var nodes: [AnyHashable: Node] = [:]
-	private var root: AnyHashable?
+	private var sections: [Node]?
+	private var flattened: [[Node]]?
+	fileprivate var nodes: [AnyDiffIdentifier: Node] = [:]
+	private var root: AnyTreeItem?
 	
 	open func reloadData<T: Collection>(_ data: T, options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) where T.Element: TreeItem {
 		root = nil
@@ -160,15 +175,19 @@ open class TreeController: NSObject {
 		if noAnimation {
 			nodes.removeAll()
 		}
-
-		let sections = data.map{AnyTreeItem($0)}
-		let flattened = sections.enumerated().map { (i, section) -> [AnyTreeItem] in
-			var array = [AnyTreeItem]()
-			flatten(section, into: &array, from: IndexPath(row: 0, section: i), level: 0)
-			return array
+		
+		let sections = data.enumerated().map { (i, item) -> Node in
+			let node = self.node(for: item)
+			node.section = i
+			return node
 		}
 		
-		
+		let flattened = sections.enumerated().map { (i, section) -> [Node] in
+			var array = [Node]()
+			section.flatten(into: &array)
+			return array
+		}
+			
 		if noAnimation {
 			self.sections = sections
 			self.flattened = flattened
@@ -178,12 +197,6 @@ open class TreeController: NSObject {
 		else {
 			let oldSections = self.sections
 			let oldFlattened = self.flattened
-			let sections = data.map{AnyTreeItem($0)}
-			let flattened = sections.enumerated().map { (i, section) -> [AnyTreeItem] in
-				var array = [AnyTreeItem]()
-				flatten(section, into: &array, from: IndexPath(row: 0, section: i), level: 0)
-				return array
-			}
 			
 			if options.contains(.concurent) {
 				var nodes = self.nodes
@@ -235,11 +248,10 @@ open class TreeController: NSObject {
 				for (i, j) in diff.indicesMap {
 					let old = oldFlattened?[i] ?? []
 					let new = flattened[j]
-					
 					let diff = Diff(old, new)
 					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: i, sectionAfterUpdate: j, with: animation)
 					diff.deletions.forEach {
-						nodes[old[$0.diffIdentifier]] = nil
+						nodes[old[$0].diffIdentifier] = nil
 					}
 				}
 				
@@ -259,29 +271,48 @@ open class TreeController: NSObject {
 		else {
 			reloadData(Array<T.Child>(), options: options, with: animation, completion: completion)
 		}
-		root = AnyHashable(item)
+		root = AnyTreeItem(item)
 	}
 
 	open func update<T: TreeItem>(contentsOf item: T, options: BatchUpdateOptions = [], with animation: TreeController.RowAnimation = .none, completion: (() -> Void)? = nil) {
-		if AnyHashable(item) == root {
+		if AnyTreeItem(item) == root {
 			reloadData(from: item, options: options, with: animation, completion: completion)
 		}
 		else {
-			guard self.flattened != nil, let node = self.nodes[AnyHashable(item)] else {
+			guard self.flattened != nil, let node = self.nodes[AnyHashable(item.diffIdentifier)] else {
 				completion?()
 				return
 			}
 			
+			
+			let indexPath = node.indexPath!
+			let range = (indexPath.item + 1)...(indexPath.item + node.numberOfChildren)
+
+			node.item = AnyTreeItem(item)
+			
 			let noAnimation = animation == .none
 			
-			let range = node.range
+			var flattened = [Node]()
+			node.flatten(into: &flattened)
+
 			
-			var flattened = [AnyTreeItem]()
-			flatten(AnyTreeItem(item), into: &flattened, from: IndexPath(row: node.range.lowerBound, section: node.section), level: 0)
-			
+			let n = flattened.count  - range.count
+			if n != 0 {
+				if let parent = node.parent {
+					let from = node.index + node.numberOfChildren
+					parent.children?.upperBound(where: {$0.index > from}).forEach {
+						$0.index += n
+					}
+				}
+				
+				sequence(first: node, next: {$0.parent}).forEach { i in
+					i.numberOfChildren += n
+				}
+			}
+
 			
 			if noAnimation {
-				self.flattened?[node.section].replaceSubrange(range, with: flattened)
+				self.flattened?[indexPath.section].replaceSubrange(range, with: flattened)
 				tableView?.reloadData()
 				completion?()
 			}
@@ -340,53 +371,155 @@ open class TreeController: NSObject {
 	}
 	
 	open func indentationLevel<T: TreeItem>(for item: T) -> Int {
-		return nodes[item.diffIdentifier]?.level ?? 0
+		guard let node = nodes[item.diffIdentifier]?.parent else {return 0}
+		return sequence(first: node, next: {$0.parent}).reduce(0, {$0 + ($1.cellIdentifier != nil ? 1 : 0)})
+	}
+	
+	open func selectedItems() -> [Any]? {
+		return tableView?.indexPathsForSelectedRows?.map { indexPath -> Any in
+			let node = self.node(at: indexPath)
+			let base: Any = node.item.box.unbox()
+			return base
+		}
 	}
 }
 
 extension TreeController {
-	fileprivate class Node {
+	fileprivate class Node: Diffable {
+		
+		static func == (lhs: TreeController.Node, rhs: TreeController.Node) -> Bool {
+			return lhs.item == rhs.item
+		}
+		
+		var diffIdentifier: AnyHashable {
+			return item.diffIdentifier
+		}
+		
 		struct Flags: OptionSet {
 			var rawValue: UInt32
 			static let isExpandable = Flags(rawValue: 1 << 0)
 			static let isExpanded = Flags(rawValue: 1 << 1)
 		}
+		
+		let cellIdentifier: String?
 		var flags: Flags
 		var estimatedRowHeight: CGFloat?
-		var section: Int = 0
-		var row: Int?
-//		var indexPath: IndexPath?
-		var level: Int
-		var range: Range<Int> = 0..<0
-		let cellIdentifier: String?
-		init(flags: Flags, cellIdentifier: String?, level: Int) {
-			self.flags = flags
-			self.cellIdentifier = cellIdentifier
-			self.level = level
+
+		weak var parent: Node?
+		
+		private var _children: [Node]??
+		
+		var children: [Node]?  {
+			if _children == nil {
+				var i: Int = 0
+				_children = .some(item.children?.map {
+					let child = $0.box.node(treeController: treeController)
+					child.index = i
+					child.parent = self
+					if child.cellIdentifier != nil {
+						i += 1
+					}
+					return child
+				})
+			}
+			return _children!
 		}
-	}
-	
-	private func newNode(for item: AnyTreeItem, level: Int) -> Node {
-		var flags = TreeController.Node.Flags()
-		if delegate!.treeController(self, isExpandable: item) {
-			flags.insert(.isExpandable)
-			if delegate!.treeController(self, isExpanded: item) {
-				flags.insert(.isExpanded)
+		
+		func flatten(into array: inout [Node]) {
+			if cellIdentifier != nil {
+				array.append(self)
+			}
+			if cellIdentifier == nil || flags.contains(.isExpanded) {
+				children?.forEach {
+					$0.flatten(into: &array)
+				}
 			}
 		}
-		else {
-			flags.insert(.isExpanded)
+		
+		private var _numberOfChildren: Int?
+		
+		var numberOfChildren: Int {
+			get {
+				if _numberOfChildren == nil {
+					if cellIdentifier == nil || flags.contains(.isExpanded) {
+						_numberOfChildren = children?.reduce(0, {$0 + $1.numberOfChildren}) ?? 0
+					}
+					else {
+						_numberOfChildren = 0
+					}
+				}
+				return _numberOfChildren!
+			}
+			set {
+				_numberOfChildren = newValue
+			}
 		}
-		let node = item.box.newNode(treeController: self, level: level)
-		nodes[item.diffIdentifier] = node
-		return node
+
+		var _section: Int?
+		
+		var section: Int {
+			get {
+				return _section ?? parent!.section
+			}
+			set {
+				_section = newValue
+			}
+		}
+
+		var index: Int = 0
+		
+		var indexPath: IndexPath? {
+			guard cellIdentifier != nil else {return nil}
+			
+			let row = sequence(first: self, next: {$0.parent}).reduce(-1, {$0 + $1.index + ($1.cellIdentifier == nil ? 0 : 1)})
+			return IndexPath(row: row, section: section)
+		}
+		
+		var item: AnyTreeItem {
+			didSet {
+				_children = nil
+				_numberOfChildren = nil
+			}
+		}
+		
+		unowned var treeController: TreeController
+		
+		init<T: TreeItem>(_ item: T, treeController: TreeController) {
+			self.treeController = treeController
+			self.item = AnyTreeItem(item)
+			cellIdentifier = treeController.delegate?.treeController(treeController, cellIdentifierFor: item)
+			flags = []
+			if treeController.delegate?.treeController(treeController, isExpandable: item) == true {
+				flags.insert(.isExpandable)
+				if treeController.delegate?.treeController(treeController, isExpanded: item) == true {
+					flags.insert(.isExpanded)
+				}
+			}
+		}
 	}
 	
-	@discardableResult
-	private func flatten(_ item: AnyTreeItem, into: inout [AnyTreeItem], from indexPath: IndexPath, level: Int) -> Range<Int> {
-		var level = level
-		let node = nodes[item.diffIdentifier] ?? newNode(for: item, level: level)
+	fileprivate func node<T: TreeItem>(for item: T) -> Node {
+		if let node = nodes[item.diffIdentifier] {
+			node.item = AnyTreeItem(item)
+			return node
+		}
+		else {
+			let node = Node(item, treeController: self)
+			nodes[item.diffIdentifier] = node
+			return node
+		}
+	}
+	
+	/*@discardableResult
+	private func flatten1(_ item: AnyTreeItem, into: inout [AnyTreeItem], from indexPath: IndexPath, parent: Node?) -> Range<Int> {
+		let node = nodes[item.diffIdentifier] ?? newNode(for: item)
 		node.section = indexPath.section
+		node.children = []
+		if parent != nil {
+			node.parent = parent
+			parent?.children?.append(node)
+		}
+		
 		var indexPath = indexPath
 
 		if node.cellIdentifier != nil {
@@ -394,7 +527,6 @@ extension TreeController {
 			node.range = Range(indexPath.row...indexPath.row)
 			into.append(item)
 			indexPath.row += 1
-			level += 1
 		}
 		else {
 			node.range = indexPath.row..<indexPath.row
@@ -404,38 +536,68 @@ extension TreeController {
 				let before = into.count
 				
 				
-				node.range = node.range.lowerBound..<flatten($0, into: &into, from: indexPath, level: level).upperBound
+				node.range = node.range.lowerBound..<flatten1($0, into: &into, from: indexPath, parent: node).upperBound
 				
 				let after = into.count
 				indexPath.row += after - before
 			}
 		}
 		return node.range
-	}
+	}*/
 	
 	private func indexPath<T: TreeItem>(for item: T) -> IndexPath? {
-		guard let node = nodes[item.diffIdentifier], let row = node.row else {return nil}
-		return IndexPath(row: row, section: node.section)
+		return nodes[item.diffIdentifier]?.indexPath
+	}
+	
+	private func node(at indexPath: IndexPath) -> Node {
+		return flattened![indexPath.section][indexPath.item]
 	}
 	
 	private func handleRowSelection(for item: AnyTreeItem, at indexPath: IndexPath) {
 		let node = nodes[item.diffIdentifier]!
 		if node.flags.contains(.isExpandable) {
 			if node.flags.contains(.isExpanded) {
-				let range = node.range.dropFirst()
+				let range = (indexPath.item + 1)...(indexPath.item + node.numberOfChildren)
 				flattened?[indexPath.section].removeSubrange(range)
 				node.flags.remove(.isExpanded)
-				node.range = Range(node.range.lowerBound...node.range.lowerBound)
+				
+				let n = range.count
+				if let parent = node.parent {
+					let from = node.index + node.numberOfChildren
+					parent.children?.upperBound(where: {$0.index > from}).forEach {
+						$0.index -= n
+					}
+				}
+
+				sequence(first: node, next: {$0.parent}).forEach { i in
+					i.numberOfChildren -= n
+				}
+
+				
 				tableView?.deleteRows(at: range.map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
 				item.box.treeControllerDidCollapseItem(self)
 			}
 			else {
 				node.flags.insert(.isExpanded)
-				var items = [AnyTreeItem]()
-				flatten(item, into: &items, from: indexPath, level: node.level)
-				let range = (indexPath.item + 1)..<(indexPath.item + items.count)
-				flattened?[indexPath.section].replaceSubrange(indexPath.item...indexPath.item, with: items)
-				tableView?.insertRows(at: range.map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
+				var array = [Node]()
+				node.flatten(into: &array)
+				
+				let range = (indexPath.item)..<(indexPath.item + array.count)
+				flattened?[indexPath.section].replaceSubrange(indexPath.item...indexPath.item, with: array)
+				
+				let n = range.count - 1
+				if let parent = node.parent {
+					let from = node.index + node.numberOfChildren
+					parent.children?.upperBound(where: {$0.index > from}).forEach {
+						$0.index += n
+					}
+				}
+
+				sequence(first: node, next: {$0.parent}).forEach { i in
+					i.numberOfChildren += n
+				}
+				
+				tableView?.insertRows(at: range.dropFirst().map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
 				item.box.treeControllerDidExpandItem(self)
 			}
 		}
@@ -452,45 +614,91 @@ extension TreeController: UITableViewDataSource {
 	}
 	
 	open func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-		let item = flattened![indexPath.section][indexPath.item]
-		let node = nodes[item.diffIdentifier]!
+//		let item = flattened![indexPath.section][indexPath.item]
+		let node = self.node(at: indexPath)
 		let cell = tableView.dequeueReusableCell(withIdentifier: node.cellIdentifier!, for: indexPath)
-		item.box.treeController(self, configure: cell)
+		node.item.box.treeController(self, configure: cell)
 		return cell
+	}
+	
+	open func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+		let node = self.node(at: indexPath)
+		return node.item.box.canEdit(self) ?? false
+	}
+	
+	open func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+		let node = self.node(at: indexPath)
+		node.item.box.treeController(self, commit: editingStyle)
+	}
+	
+	open func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+		return true
+	}
+	
+	public func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
 	}
 }
 
 extension TreeController: UITableViewDelegate {
 	
 	open func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-		let item = flattened![indexPath.section][indexPath.item]
-		item.box.treeControllerDidSelectRow(self)
-		handleRowSelection(for: item, at: indexPath)
+		let node = self.node(at: indexPath)
+		node.item.box.treeControllerDidSelectRow(self)
+		handleRowSelection(for: node.item, at: indexPath)
 	}
 	
 	open func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
-		let item = flattened![indexPath.section][indexPath.item]
-		item.box.treeControllerDidDeselectRow(self)
-//		handleRowSelection(for: item, at: indexPath)
+		let node = self.node(at: indexPath)
+		node.item.box.treeControllerDidDeselectRow(self)
 	}
 	
 	open func tableView(_ tableView: UITableView, indentationLevelForRowAt indexPath: IndexPath) -> Int {
-		let item = flattened![indexPath.section][indexPath.item]
-		return indentationLevel(for: item)
+		guard let node = self.node(at: indexPath).parent else {return 0}
+		return sequence(first: node, next: {$0.parent}).reduce(0, {$0 + ($1.cellIdentifier != nil ? 1 : 0)})
 	}
 	
-	public func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+	open func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
 		let item = flattened![indexPath.section][indexPath.item]
 		let node = nodes[item.diffIdentifier]
 		return node?.estimatedRowHeight ?? tableView.estimatedRowHeight
 	}
 	
-	public func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+	open func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
 		let item = flattened![indexPath.section][indexPath.item]
 		let node = nodes[item.diffIdentifier]
 		node?.estimatedRowHeight = cell.bounds.height
 	}
+	
+	open func tableView(_ tableView: UITableView, editActionsForRowAt indexPath: IndexPath) -> [UITableViewRowAction]? {
+		let node = self.node(at: indexPath)
+		return node.item.box.editActions(self)
+	}
+	
+	public func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+		let node = self.node(at: indexPath)
+		return node.item.box.editingStyle(self) ?? .none
+	}
+	
+	open func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
+		let node = self.node(at: indexPath)
+		node.item.box.treeControllerDidTapAccessoryButton(self)
+	}
 
+	public func tableView(_ tableView: UITableView, targetIndexPathForMoveFromRowAt sourceIndexPath: IndexPath, toProposedIndexPath proposedDestinationIndexPath: IndexPath) -> IndexPath {
+		var indexPath = proposedDestinationIndexPath
+		indexPath.section = min(flattened!.count - 1, indexPath.section)
+		indexPath.row = min(flattened![indexPath.section].count - 1, indexPath.row)
+		
+		let srcItem = flattened![sourceIndexPath.section][sourceIndexPath.item]
+		let dstItem = flattened![indexPath.section][indexPath.item]
+		let srcNode = nodes[srcItem.diffIdentifier]!
+		let dstNode = nodes[dstItem.diffIdentifier]!
+//		if dstNode.section == srcNode.section && dstNode.range.overlaps(srcNode.range) {
+//			return sourceIndexPath
+//		}
+		
+		return proposedDestinationIndexPath
+	}
 }
 
 extension TreeController: UIScrollViewDelegate {
@@ -560,12 +768,20 @@ fileprivate protocol TreeItemBox {
 	var diffIdentifier: AnyHashable {get}
 	func isEqual(_ other: TreeItemBox) -> Bool
 	func isEqual<T: TreeItem>(_ other: T) -> Bool
-	func newNode(treeController: TreeController, level: Int) -> TreeController.Node
+	func node(treeController: TreeController) -> TreeController.Node
 	func treeController(_ treeController: TreeController, configure cell: UITableViewCell) -> Void
 	func treeControllerDidSelectRow(_ treeController: TreeController) -> Void
 	func treeControllerDidDeselectRow(_ treeController: TreeController) -> Void
+	func isExpandable(_ treeController: TreeController) -> Bool?
+	func isExpanded(_ treeController: TreeController) -> Bool?
 	func treeControllerDidExpandItem(_ treeController: TreeController) -> Void
 	func treeControllerDidCollapseItem(_ treeController: TreeController) -> Void
+	func canEdit(_ treeController: TreeController) -> Bool?
+	func editingStyle(_ treeController: TreeController) -> UITableViewCell.EditingStyle?
+	func editActions(_ treeController: TreeController) -> [UITableViewRowAction]?
+	func treeController(_ treeController: TreeController, commit editingStyle: UITableViewCell.EditingStyle) -> Void
+	func treeControllerDidTapAccessoryButton (_ treeController: TreeController) -> Void
+
 }
 
 fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
@@ -601,18 +817,8 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 		return other == base
 	}
 	
-	func newNode(treeController: TreeController, level: Int) -> TreeController.Node {
-		var flags = TreeController.Node.Flags()
-		if treeController.delegate!.treeController(treeController, isExpandable: base) {
-			flags.insert(.isExpandable)
-			if treeController.delegate!.treeController(treeController, isExpanded: base) {
-				flags.insert(.isExpanded)
-			}
-		}
-		else {
-			flags.insert(.isExpanded)
-		}
-		return TreeController.Node(flags: flags, cellIdentifier: treeController.delegate!.treeController(treeController, cellIdentifierFor: base), level: level)
+	func node(treeController: TreeController) -> TreeController.Node {
+		return treeController.node(for: base)
 	}
 	
 	func treeController(_ treeController: TreeController, configure cell: UITableViewCell) -> Void {
@@ -627,6 +833,15 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 		treeController.delegate?.treeController(treeController, didDeselectRowFor: base)
 	}
 	
+	func isExpandable(_ treeController: TreeController) -> Bool? {
+		return treeController.delegate?.treeController(treeController, isExpandable: base)
+	}
+	
+	func isExpanded(_ treeController: TreeController) -> Bool? {
+		return treeController.delegate?.treeController(treeController, isExpanded: base)
+	}
+
+	
 	func treeControllerDidExpandItem(_ treeController: TreeController) -> Void {
 		treeController.delegate?.treeController(treeController, didExpand: base)
 	}
@@ -634,22 +849,102 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 	func treeControllerDidCollapseItem(_ treeController: TreeController) -> Void {
 		treeController.delegate?.treeController(treeController, didCollapse: base)
 	}
+	
+	func canEdit(_ treeController: TreeController) -> Bool? {
+		return treeController.delegate?.treeController(treeController, canEdit: base)
+	}
+	
+	func editingStyle(_ treeController: TreeController) -> UITableViewCell.EditingStyle? {
+		return treeController.delegate?.treeController(treeController, editingStyleFor: base)
+	}
+	
+	func editActions(_ treeController: TreeController) -> [UITableViewRowAction]? {
+		return treeController.delegate?.treeController(treeController, editActionsFor: base)
+	}
+	
+	func treeController(_ treeController: TreeController, commit editingStyle: UITableViewCell.EditingStyle) -> Void {
+		treeController.delegate?.treeController(treeController, commit: editingStyle, for: base)
+	}
+	
+	func treeControllerDidTapAccessoryButton (_ treeController: TreeController) -> Void {
+		treeController.delegate?.treeController(treeController, accessoryButtonTappedFor: base)
+	}
+
 }
 
 extension TreeController {
 
 	open override var debugDescription: String {
 		var output = [String]()
-		func dump(_ item: AnyTreeItem, _ level: Int) {
-			output.append("\(String.init(repeating: " ", count: level * 4))- \(item.base) (\(item.diffIdentifier))")
-			item.children?.forEach {
-				dump($0, level + 1)
+		
+		func dump(_ node: Node) {
+			let level: Int = {
+				guard let node = nodes[node.item.diffIdentifier]?.parent else {return 0}
+				return sequence(first: node, next: {$0.parent}).reduce(0, {$0 + ($1.cellIdentifier != nil ? 1 : 0)})
+			}()
+
+			let base: Any = node.item.box.unbox()
+			output.append("\(String.init(repeating: " ", count: level * 4))- \(node.indexPath!): \(base) (\(node.item.diffIdentifier))")
+		}
+		
+		flattened?.forEach {
+			$0.forEach { dump($0)
+				
 			}
 		}
 		
-		sections?.forEach {
-			dump($0, 0)
-		}
 		return output.joined(separator: "\n")
 	}
+}
+
+extension RandomAccessCollection {
+	
+	public func lowerBound(where predicate: (Element) throws -> Bool) rethrows -> Self.SubSequence {
+		guard !indices.isEmpty else {return self[endIndex...]}
+		var lower = indices.first!
+		var count = indices.count
+		
+		while count > 0 {
+			let step = count / 2
+			let j = index(lower, offsetBy: step)
+			
+			if try predicate(self[j]) {
+				lower = index(after: j)
+				count -= step + 1
+			}
+			else {
+				count = step
+			}
+		}
+		
+		return self[..<lower]
+	}
+	
+	public func upperBound(where predicate: (Element) throws -> Bool) rethrows -> Self.SubSequence {
+		guard !indices.isEmpty else {return self[endIndex...]}
+		var lower = indices.first!
+		var count = indices.count
+		
+		while count > 0 {
+			let step = count / 2
+			let j = index(lower, offsetBy: step)
+			
+			if try !predicate(self[j]) {
+				lower = index(after: j)
+				count -= step + 1
+			}
+			else {
+				count = step
+			}
+		}
+		
+		return self[lower...]
+	}
+	
+	public func equalRange(lowerBound: (Element) throws -> Bool, upperBound: (Element) throws -> Bool) rethrows -> Self.SubSequence {
+		let lower = try self.lowerBound(where: lowerBound)
+		let upper = try self[lower.endIndex...].upperBound(where: upperBound)
+		return self[lower.endIndex..<upper.startIndex]
+	}
+	
 }

@@ -62,11 +62,12 @@ class ViewController: UITableViewController {
 	lazy var treeController: TreeController = TreeController()
 	override func viewDidLoad() {
 		super.viewDidLoad()
+		navigationItem.rightBarButtonItem = editButtonItem
 		treeController.tableView = tableView
 		treeController.delegate = self
 		
 		let dic = try! JSONSerialization.jsonObject(with: Data.init(contentsOf: Bundle.main.url(forResource: "cities", withExtension: "json")!), options: []) as! [String: [String: [String]]]
-		let countries = dic.sorted{$0.key < $1.key}.map {Country($0)}
+		let countries = dic.sorted{$0.key < $1.key}.map {Country($0)}[0...1]
 		
 		treeController.reloadData(countries)
 	}
@@ -115,5 +116,9 @@ extension ViewController: TreeControllerDelegate {
 	func treeController<T>(_ treeController: TreeController, didExpand item: T) where T : TreeItem {
 		guard let cell = treeController.cell(for: item) as? Cell else {return}
 		cell.expandMark?.text = "[-]"
+	}
+	
+	func treeController<T>(_ treeController: TreeController, canEdit item: T) -> Bool where T : TreeItem {
+		return true
 	}
 }
