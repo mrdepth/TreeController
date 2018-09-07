@@ -67,7 +67,7 @@ class ViewController: UITableViewController {
 		treeController.delegate = self
 		
 		let dic = try! JSONSerialization.jsonObject(with: Data.init(contentsOf: Bundle.main.url(forResource: "cities", withExtension: "json")!), options: []) as! [String: [String: [String]]]
-		let countries = dic.sorted{$0.key < $1.key}.map {Country($0)}[0...1]
+		let countries = dic.sorted{$0.key < $1.key}.map {Country($0)}[0...2]
 		
 		treeController.reloadData(countries)
 	}
@@ -120,5 +120,13 @@ extension ViewController: TreeControllerDelegate {
 	
 	func treeController<T>(_ treeController: TreeController, canEdit item: T) -> Bool where T : TreeItem {
 		return true
+	}
+	
+	func treeController<T, S, D>(_ treeController: TreeController, canMove item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) -> Bool where T : TreeItem, S : TreeItem, D : TreeItem {
+		let result = (item is Country.Region.Child && newParent is Country.Region) ||
+			(item is Country.Region && newParent is Country) ||
+			(item is Country && newParent == nil)
+		print("\(type(of: item)): \(result) \(newParent)")
+		return result
 	}
 }
