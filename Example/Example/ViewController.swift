@@ -101,7 +101,7 @@ extension ViewController: TreeControllerDelegate {
 	}
 	
 	func treeController<T>(_ treeController: TreeController, isExpanded item: T) -> Bool where T : TreeItem {
-		return false
+		return true
 	}
 	
 	func treeController<T>(_ treeController: TreeController, didSelectRowFor item: T) where T : TreeItem {
@@ -122,11 +122,15 @@ extension ViewController: TreeControllerDelegate {
 		return true
 	}
 	
+	func treeController<T>(_ treeController: TreeController, canMove item: T) -> Bool where T : TreeItem {
+		return true
+	}
+	
 	func treeController<T, S, D>(_ treeController: TreeController, canMove item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) -> Bool where T : TreeItem, S : TreeItem, D : TreeItem {
 		let result = (item is Country.Region.Child && newParent is Country.Region) ||
 			(item is Country.Region && newParent is Country) ||
 			(item is Country && newParent == nil)
-		print("\(type(of: item)): \(result) \(newParent)")
+//		print("\(type(of: item)): \(result) \(newParent)")
 		return result
 	}
 }
