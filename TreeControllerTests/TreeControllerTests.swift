@@ -19,34 +19,53 @@ class TreeControllerTests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
-    func testBase() {
-		let window = UIWindow(frame: CGRect(origin: .zero, size: CGSize(width: 320, height: 480)))
-		window.screen = UIScreen.main
-		window.makeKeyAndVisible()
-		
+    func testUpdate1() {
 		let vc = TreeViewController(style: .plain)
-		window.rootViewController = vc
 		vc.loadViewIfNeeded()
-		vc.viewWillAppear(true)
 
 		var data = [Item("A", [Item("A1"), Item("A2"), Item("A3")])]
-		vc.treeController.reloadData(data, with: .fade)
+		vc.treeController.reloadData(data, with: .none)
 		
-		let exp = expectation(description: "end")
-		
-		DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-			XCTAssertEqual(vc.tableView.numberOfSections, 1)
-			XCTAssertEqual(vc.tableView.numberOfRows(inSection: 0), 3)
-			data[0].children?.append(Item("A4"))
-			vc.treeController.update(contentsOf: data[0])
-			XCTAssertEqual(vc.tableView.numberOfRows(inSection: 0), 4)
-
-			exp.fulfill()
-		}
-		
-		wait(for: [exp], timeout: 10)
+		XCTAssertEqual(vc.tableView.numberOfSections, 1)
+		XCTAssertEqual(vc.tableView.numberOfRows(inSection: 0), 4)
+		data[0].children?.append(Item("A4"))
+		vc.treeController.update(contentsOf: data[0], options: [], with: .fade)
+		XCTAssertEqual(vc.tableView.numberOfRows(inSection: 0), 5)
+		data.append(Item("B"))
+		vc.treeController.reloadData(data, options: [], with: .fade)
+		XCTAssertEqual(vc.tableView.numberOfSections, 2)
+		XCTAssertEqual(vc.tableView.numberOfRows(inSection: 0), 5)
+		XCTAssertEqual(vc.tableView.numberOfRows(inSection: 1), 1)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A2", "A3", "A4", "B"])
     }
 
+	func testUpdate2() {
+		let vc = TreeViewController(style: .plain)
+		vc.loadViewIfNeeded()
+		
+		var data = [Item("A", [Item("A1"), Item("A2"), Item("A3")], nil),
+					Item("B", [Item("B1")], nil)]
+		vc.treeController.reloadData(data, with: .none)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A2", "A3", "B1"])
+
+		data[0].children![0].children = [Item("A1_1"), Item("A1_2")]
+		vc.treeController.update(contentsOf: data[0], options: [], with: .fade)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A1_1", "A1_2", "A2", "A3", "B1"])
+
+		data[0].children![0].children = [Item("A1_3"), Item("A1_2"), Item("A1_1")]
+		vc.treeController.update(contentsOf: data[0].children![0], options: [], with: .fade)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A1_3", "A1_2", "A1_1", "A2", "A3", "B1"])
+		
+		data[0].children![0].children = [Item("A1_1"), Item("A1_2")]
+		data[1].children![0].children = [Item("A1_3")]
+		vc.treeController.reloadData(data, with: .fade)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A1_1", "A1_2", "A2", "A3", "B1", "A1_3"])
+		
+		data[1].children![0].children = []
+		vc.treeController.update(contentsOf: data[1], options: [], with: .fade)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A1_1", "A1_2", "A2", "A3", "B1"])
+	}
+	
     func testPerformanceExample() {
         // This is an example of a performance test case.
         self.measure {
@@ -55,15 +74,21 @@ class TreeControllerTests: XCTestCase {
     }
 }
 
-struct Item: TreeItem {
+struct Item: TreeItem, CustomStringConvertible {
 	var text: String
 	var children: [Item]?
-	init(_ text: String, _ children: [Item]? = nil) {
+	var cellIdentifier: String?
+	
+	init(_ text: String, _ children: [Item]? = nil, _ cellIdentifier: String? = "Cell") {
 		self.text = text
 		self.children = children
+		self.cellIdentifier = cellIdentifier
+		self.diffIdentifier = text
 	}
 	
-	var diffIdentifier: String {
+	var diffIdentifier: String
+	
+	var description: String {
 		return text
 	}
 }
@@ -75,12 +100,13 @@ class TreeViewController: UITableViewController {
 		super.viewDidLoad()
 		tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
 		treeController.tableView = tableView
+		treeController.delegate = self
 	}
 }
 
 extension TreeViewController: TreeControllerDelegate {
 	func treeController<T>(_ treeController: TreeController, cellIdentifierFor item: T) -> String? where T : TreeItem {
-		return "Cell"
+		return (item as? Item)?.cellIdentifier
 	}
 	
 	func treeController<T>(_ treeController: TreeController, configure cell: UITableViewCell, for item: T) where T : TreeItem {
