@@ -133,4 +133,7 @@ extension ViewController: TreeControllerDelegate {
 //		print("\(type(of: item)): \(result) \(newParent)")
 		return result
 	}
+	
+	func treeController<T, S, D>(_ treeController: TreeController, move item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) where T : TreeItem, S : TreeItem, D : TreeItem {
+	}
 }

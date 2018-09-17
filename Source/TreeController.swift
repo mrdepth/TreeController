@@ -814,6 +814,7 @@ extension TreeController: UITableViewDataSource {
 			self.tableView!.endUpdates()
 			
 			node.item.box.treeController(self, moveAt: moveFrom.0, inParent: moveFrom.1, to: target.index, inParent: target.newParent?.item)
+			assert(self.isValid)
 		}
 	}
 }
@@ -1157,6 +1158,18 @@ extension TreeController {
 		}
 		return output.joined(separator: "\n")
 	}
+	
+	#if DEBUG
+	fileprivate var isValid: Bool {
+		return true
+//		let flattened = sections?.enumerated().map { (i, section) -> [Node] in
+//			var array = [Node]()
+//			section.flatten(into: &array)
+//			return array
+//		}
+//		return self.flattened == flattened
+	}
+	#endif
 }
 
 extension RandomAccessCollection {

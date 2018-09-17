@@ -10,7 +10,21 @@
 		1211C77621132BE0005C5F81 /* TreeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211C77521132BE0005C5F81 /* TreeController.swift */; };
 		1211C77921132C1A005C5F81 /* Diff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211C77821132C1A005C5F81 /* Diff.swift */; };
 		12D364D81E719B54000ED70B /* TreeController.h in Headers */ = {isa = PBXBuildFile; fileRef = 12D364D61E719B54000ED70B /* TreeController.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		12F3DE55214D789300B97B5E /* TreeControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F3DE54214D789300B97B5E /* TreeControllerTests.swift */; };
+		12F3DE57214D789300B97B5E /* TreeController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12D364D31E719B54000ED70B /* TreeController.framework */; };
+		12F3DE5D214D789B00B97B5E /* TreeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211C77521132BE0005C5F81 /* TreeController.swift */; };
+		12F3DE5E214D789B00B97B5E /* Diff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211C77821132C1A005C5F81 /* Diff.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		12F3DE58214D789300B97B5E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 12D364CA1E719B54000ED70B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 12D364D21E719B54000ED70B;
+			remoteInfo = TreeController;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		1211C77521132BE0005C5F81 /* TreeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeController.swift; sourceTree = "<group>"; };
@@ -18,6 +32,9 @@
 		12D364D31E719B54000ED70B /* TreeController.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = TreeController.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		12D364D61E719B54000ED70B /* TreeController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TreeController.h; sourceTree = "<group>"; };
 		12D364D71E719B54000ED70B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		12F3DE52214D789300B97B5E /* TreeControllerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TreeControllerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		12F3DE54214D789300B97B5E /* TreeControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeControllerTests.swift; sourceTree = "<group>"; };
+		12F3DE56214D789300B97B5E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -28,6 +45,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		12F3DE4F214D789300B97B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12F3DE57214D789300B97B5E /* TreeController.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -35,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				12D364D51E719B54000ED70B /* Source */,
+				12F3DE53214D789300B97B5E /* TreeControllerTests */,
 				12D364D41E719B54000ED70B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				12D364D31E719B54000ED70B /* TreeController.framework */,
+				12F3DE52214D789300B97B5E /* TreeControllerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -56,6 +83,15 @@
 				1211C77821132C1A005C5F81 /* Diff.swift */,
 			);
 			path = Source;
+			sourceTree = "<group>";
+		};
+		12F3DE53214D789300B97B5E /* TreeControllerTests */ = {
+			isa = PBXGroup;
+			children = (
+				12F3DE54214D789300B97B5E /* TreeControllerTests.swift */,
+				12F3DE56214D789300B97B5E /* Info.plist */,
+			);
+			path = TreeControllerTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -90,18 +126,41 @@
 			productReference = 12D364D31E719B54000ED70B /* TreeController.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		12F3DE51214D789300B97B5E /* TreeControllerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 12F3DE5C214D789300B97B5E /* Build configuration list for PBXNativeTarget "TreeControllerTests" */;
+			buildPhases = (
+				12F3DE4E214D789300B97B5E /* Sources */,
+				12F3DE4F214D789300B97B5E /* Frameworks */,
+				12F3DE50214D789300B97B5E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				12F3DE59214D789300B97B5E /* PBXTargetDependency */,
+			);
+			name = TreeControllerTests;
+			productName = TreeControllerTests;
+			productReference = 12F3DE52214D789300B97B5E /* TreeControllerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		12D364CA1E719B54000ED70B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1000;
 				LastUpgradeCheck = 0940;
 				ORGANIZATIONNAME = "Artem Shimanski";
 				TargetAttributes = {
 					12D364D21E719B54000ED70B = {
 						CreatedOnToolsVersion = 8.2.1;
 						LastSwiftMigration = 1000;
+						ProvisioningStyle = Automatic;
+					};
+					12F3DE51214D789300B97B5E = {
+						CreatedOnToolsVersion = 10.0;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -119,12 +178,20 @@
 			projectRoot = "";
 			targets = (
 				12D364D21E719B54000ED70B /* TreeController */,
+				12F3DE51214D789300B97B5E /* TreeControllerTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		12D364D11E719B54000ED70B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		12F3DE50214D789300B97B5E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -143,7 +210,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		12F3DE4E214D789300B97B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12F3DE5E214D789B00B97B5E /* Diff.swift in Sources */,
+				12F3DE55214D789300B97B5E /* TreeControllerTests.swift in Sources */,
+				12F3DE5D214D789B00B97B5E /* TreeController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		12F3DE59214D789300B97B5E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 12D364D21E719B54000ED70B /* TreeController */;
+			targetProxy = 12F3DE58214D789300B97B5E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		12D364D91E719B54000ED70B /* Debug */ = {
@@ -302,6 +387,49 @@
 			};
 			name = Release;
 		};
+		12F3DE5A214D789300B97B5E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = TreeControllerTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shimanski.TreeControllerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		12F3DE5B214D789300B97B5E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = TreeControllerTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.shimanski.TreeControllerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 4.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -319,6 +447,15 @@
 			buildConfigurations = (
 				12D364DC1E719B54000ED70B /* Debug */,
 				12D364DD1E719B54000ED70B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		12F3DE5C214D789300B97B5E /* Build configuration list for PBXNativeTarget "TreeControllerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				12F3DE5A214D789300B97B5E /* Debug */,
+				12F3DE5B214D789300B97B5E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
