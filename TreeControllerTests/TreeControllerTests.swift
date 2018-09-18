@@ -18,6 +18,12 @@ class TreeControllerTests: XCTestCase {
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
+	
+	func testDiff() {
+		let a = [0,1]
+		let b = [1]
+		_ = Diff(a[1...], b)
+	}
 
     func testUpdate1() {
 		let vc = TreeViewController(style: .plain)
@@ -66,6 +72,137 @@ class TreeControllerTests: XCTestCase {
 		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A1", "A1_1", "A1_2", "A2", "A3", "B1"])
 	}
 	
+	func testMove1() {
+		let exp = expectation(description: "end")
+		
+		let vc = TreeViewController(style: .plain)
+		vc.canMove = { (_, newParent) in
+			return newParent?.text.count == 1
+		}
+		vc.loadViewIfNeeded()
+		
+		let data = [Item("A", [Item("A1", [Item("A1_1"), Item("A1_2")]), Item("A2"), Item("A3")]),
+					Item("B", [Item("B1")])]
+		vc.treeController.reloadData(data, with: .none)
+
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A1_2", "A2", "A3", "B", "B1"])
+		let from = IndexPath(row: 1, section: 0)
+		let to = vc.treeController.tableView(vc.tableView, targetIndexPathForMoveFromRowAt: from, toProposedIndexPath: IndexPath(row: 1, section: 1))
+		
+		vc.tableView.beginUpdates()
+		vc.tableView.moveRow(at: from, to: to)
+		vc.treeController.tableView(vc.tableView, moveRowAt: from, to: to)
+		vc.tableView.endUpdates()
+		
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A2", "A3", "B", "A1", "A1_1", "A1_2", "B1"])
+			
+			vc.tableView.beginUpdates()
+			vc.tableView.moveRow(at: to, to: from)
+			vc.treeController.tableView(vc.tableView, moveRowAt: to, to: from)
+			vc.tableView.endUpdates()
+			
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A1_2", "A2", "A3", "B", "B1"])
+				
+				let to = vc.treeController.tableView(vc.tableView, targetIndexPathForMoveFromRowAt: from, toProposedIndexPath: IndexPath(row: 5, section: 0))
+				vc.tableView.beginUpdates()
+				vc.tableView.moveRow(at: from, to: to)
+				vc.treeController.tableView(vc.tableView, moveRowAt: from, to: to)
+				vc.tableView.endUpdates()
+				
+				DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+					XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A2", "A3", "A1", "A1_1", "A1_2", "B", "B1"])
+					
+					let to = IndexPath(row: 3, section: 0)
+					vc.tableView.beginUpdates()
+					vc.tableView.moveRow(at: to, to: from)
+					vc.treeController.tableView(vc.tableView, moveRowAt: to, to: from)
+					vc.tableView.endUpdates()
+					
+					DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+						XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A1_2", "A2", "A3", "B", "B1"])
+						exp.fulfill()
+					}
+
+				}
+			}
+		}
+		
+		wait(for: [exp], timeout: 10)
+
+	}
+
+	func testMove2() {
+		let exp = expectation(description: "end")
+		
+		let vc = TreeViewController(style: .plain)
+		vc.canMove = { (oldParent, newParent) in
+			return newParent?.text.count == 8 || newParent?.text == "A1_1"
+		}
+		vc.loadViewIfNeeded()
+		
+		let data = [Item("A", [Item("A1", [Item("A1_1", nil, nil)], nil)]),
+					Item("B", [Item("B1", [
+						Item("B1_1", [Item("B1_1_1", [Item("B1_1_1_1", nil, nil)], nil)]),
+						Item("B1_2", [Item("B1_2_1", [Item("B1_2_1_1", nil, nil)], nil)]),
+						Item("B1_3", [Item("B1_3_1", [Item("B1_3_1_1", [Item("B1_3_1_1_1")], nil)], nil)])
+						], nil)], nil)]
+		vc.treeController.reloadData(data, with: .none)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B1_1", "B1_2", "B1_3", "B1_3_1_1_1"])
+
+		
+		let from = IndexPath(row: 3, section: 1)
+		let to = vc.treeController.tableView(vc.tableView, targetIndexPathForMoveFromRowAt: from, toProposedIndexPath: IndexPath(row: 2, section: 1))
+		
+		vc.tableView.beginUpdates()
+		vc.tableView.moveRow(at: from, to: to)
+		vc.treeController.tableView(vc.tableView, moveRowAt: from, to: to)
+		vc.tableView.endUpdates()
+		
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B1_1", "B1_2", "B1_3_1_1_1", "B1_3"])
+			let from = to
+			let to = vc.treeController.tableView(vc.tableView, targetIndexPathForMoveFromRowAt: from, toProposedIndexPath: IndexPath(row: 0, section: 1))
+			
+			vc.tableView.beginUpdates()
+			vc.tableView.moveRow(at: from, to: to)
+			vc.treeController.tableView(vc.tableView, moveRowAt: from, to: to)
+			vc.tableView.endUpdates()
+			
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B1_3_1_1_1", "B1_1", "B1_2", "B1_3"])
+				
+				vc.tableView.beginUpdates()
+				vc.tableView.moveRow(at: to, to: from)
+				vc.treeController.tableView(vc.tableView, moveRowAt: to, to: from)
+				vc.tableView.endUpdates()
+				
+				DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+					XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B1_1", "B1_2", "B1_3_1_1_1", "B1_3"])
+					
+					let to = vc.treeController.tableView(vc.tableView, targetIndexPathForMoveFromRowAt: from, toProposedIndexPath: IndexPath(row: 3, section: 1))
+					XCTAssertEqual(to, IndexPath(row: 3, section: 1))
+					
+					vc.tableView.beginUpdates()
+					vc.tableView.moveRow(at: from, to: to)
+					vc.treeController.tableView(vc.tableView, moveRowAt: from, to: to)
+					vc.tableView.endUpdates()
+					
+					DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+						XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B1_1", "B1_2", "B1_3", "B1_3_1_1_1"])
+						exp.fulfill()
+					}
+
+				}
+
+			}
+
+		}
+		
+		wait(for: [exp], timeout: 10)
+	}
+	
     func testPerformanceExample() {
         // This is an example of a performance test case.
         self.measure {
@@ -95,6 +232,8 @@ struct Item: TreeItem, CustomStringConvertible {
 
 class TreeViewController: UITableViewController {
 	let treeController = TreeController()
+	
+	var canMove: ((Item?, Item?) -> Bool)?
 
 	override func viewDidLoad() {
 		super.viewDidLoad()
@@ -140,7 +279,7 @@ extension TreeViewController: TreeControllerDelegate {
 	}
 	
 	func treeController<T, S, D>(_ treeController: TreeController, canMove item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) -> Bool where T : TreeItem, S : TreeItem, D : TreeItem {
-		return true
+		return canMove?(oldParent as? Item, newParent as? Item) ?? false
 	}
 	
 	func treeController<T, S, D>(_ treeController: TreeController, move item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) where T : TreeItem, S : TreeItem, D : TreeItem {

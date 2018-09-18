@@ -136,7 +136,7 @@ public struct Diff {
 				insertions.insert(index)
 				runningOffset += 1
 			case let .index(oldIndex):
-				if old[oldIndex] != new[index] {
+				if old[oldIndex + old.startIndex] != new[index] {
 					updates.append((oldIndex, index))
 				}
 				

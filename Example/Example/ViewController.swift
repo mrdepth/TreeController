@@ -128,8 +128,7 @@ extension ViewController: TreeControllerDelegate {
 	
 	func treeController<T, S, D>(_ treeController: TreeController, canMove item: T, at fromIndex: Int, inParent oldParent: S?, to toIndex: Int, inParent newParent: D?) -> Bool where T : TreeItem, S : TreeItem, D : TreeItem {
 		let result = (item is Country.Region.Child && newParent is Country.Region) ||
-			(item is Country.Region && newParent is Country) ||
-			(item is Country && newParent == nil)
+			(item is Country.Region && newParent is Country)
 //		print("\(type(of: item)): \(result) \(newParent)")
 		return result
 	}

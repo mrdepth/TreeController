@@ -205,6 +205,8 @@ open class TreeController: NSObject {
 		
 		if noAnimation {
 			nodes.removeAll()
+			self.sections = nil
+			self.flattened = nil
 		}
 		
 		let sections = data.enumerated().map { (i, item) -> Node in
@@ -235,7 +237,7 @@ open class TreeController: NSObject {
 					let diff = Diff(oldSections?.map{$0.diffIdentifier} ?? [], sections.map{$0.diffIdentifier})
 					
 					diff.deletions.forEach {
-						oldSections?[$0].children?.forEach {
+						oldSections?[$0].children.forEach {
 							nodes[AnyDiffIdentifier($0.diffIdentifier)] = nil
 						}
 					}
@@ -283,7 +285,7 @@ open class TreeController: NSObject {
 				let diff = Diff(oldSections?.map{$0.diffIdentifier} ?? [], sections.map{$0.diffIdentifier})
 				
 				diff.deletions.forEach {
-					oldSections?[$0].children?.forEach {
+					oldSections?[$0].children.forEach {
 						nodes[AnyDiffIdentifier($0.diffIdentifier)] = nil
 					}
 				}
@@ -354,11 +356,15 @@ open class TreeController: NSObject {
 			let n = flattened.count  - range.count
 			if n != 0 {
 				if let parent = node.parent {
-					parent.children?[(node.index + 1)...].forEach {
+					parent.children[(node.index + 1)...].forEach {
 						$0.offset += n
 					}
 					sequence(first: parent, next: {$0.parent}).forEach { i in
 						i._numberOfChildren = i._numberOfChildren.map{$0 + n}
+						i.parent?.children[(i.index + 1)...].forEach {
+							$0.offset += n
+						}
+
 					}
 				}
 				
@@ -371,7 +377,7 @@ open class TreeController: NSObject {
 				completion?()
 			}
 			else {
-				let oldFlattened = self.flattened?[node.section][range] ?? []
+				let oldFlattened = range.isEmpty ? [] : self.flattened?[node.section][range] ?? []
 				
 				if options.contains(.concurent) {
 					DispatchQueue.global(qos: .utility).async {
@@ -392,7 +398,12 @@ open class TreeController: NSObject {
 					var diff = Diff(oldFlattened, flattened)
 					diff.shift(by: range.lowerBound)
 					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
-					self.flattened?[node.section].replaceSubrange(range, with: flattened)
+					if range.isEmpty {
+						self.flattened?[node.section].insert(contentsOf: flattened, at: range.lowerBound)
+					}
+					else {
+						self.flattened?[node.section].replaceSubrange(range, with: flattened)
+					}
 					tableView?.endUpdates()
 					completion?()
 				}
@@ -460,14 +471,14 @@ extension TreeController {
 
 		weak var parent: Node?
 		
-		private var _children: [Node]??
+		private var _children: [Node]?
 		
-		var children: [Node]?  {
+		var children: [Node]  {
 			get {
 				if _children == nil {
 					var i: Int = 0
 					var j: Int = 0
-					_children = .some(item.children?.map {
+					_children = item.children?.map {
 						let child = $0.box.node(treeController: treeController)
 						child.offset = i
 						child.index = j
@@ -480,7 +491,7 @@ extension TreeController {
 							i += child.numberOfChildren
 						}
 						return child
-						})
+					} ?? []
 				}
 				return _children!
 			}
@@ -494,7 +505,7 @@ extension TreeController {
 				array.append(item)
 			}
 			if cellIdentifier == nil || flags.contains(.isExpanded) {
-				children?.forEach {
+				children.forEach {
 					$0.flatten(into: &array)
 				}
 			}
@@ -506,7 +517,7 @@ extension TreeController {
 			get {
 				if _numberOfChildren == nil {
 					if cellIdentifier == nil || flags.contains(.isExpanded) {
-						_numberOfChildren = children?.reduce(0, {$0 + $1.numberOfChildren + ($1.cellIdentifier == nil ? 0 : 1)}) ?? 0
+						_numberOfChildren = children.reduce(0, {$0 + $1.numberOfChildren + ($1.cellIdentifier == nil ? 0 : 1)})
 					}
 					else {
 						_numberOfChildren = 0
@@ -624,7 +635,7 @@ extension TreeController {
 				
 				let n = range.count
 				if let parent = node.parent {
-					parent.children?[(node.index + 1)...].forEach {
+					parent.children[(node.index + 1)...].forEach {
 						$0.offset -= n
 					}
 				}
@@ -647,7 +658,7 @@ extension TreeController {
 				
 				let n = range.count - 1
 				if let parent = node.parent {
-					parent.children?[(node.index + 1)...].forEach {
+					parent.children[(node.index + 1)...].forEach {
 						$0.offset += n
 					}
 				}
@@ -682,21 +693,42 @@ extension TreeController {
 		
 		if indexPath.section < flattened!.count {
 			var i = flattened![0..<indexPath.section].map{$0.count}.reduce(indexPath.row, +)
-			if indexPath < sourceIndexPath {
-				i = max(0, i - 1)
+			if i == 0 {
+				if let node = nodes[nodes.index(nodes.startIndex, offsetBy: i)].parent {
+					after = sequence(first: node) { $0.children.first?.cellIdentifier == nil ? $0.children.first : nil }.lazy.map{$0}.last ?? node
+				}
+				else if src.item.box.treeController(self, canMoveAt: src.index, inParent: src.parent?.item, to: 0, inParent: nil) == true {
+					return MoveTarget(node: src, newParent: nil, index: 0, indexPath: proposedDestinationIndexPath)
+				}
+				else {
+					return nil
+				}
 			}
-			let node = nodes[nodes.index(nodes.startIndex, offsetBy: i)]
-			after = sequence(first: node) { $0.children?.first?.cellIdentifier == nil ? $0.children?.first : nil }.lazy.map{$0}.last ?? node
+			else {
+//				if sourceIndexPath.section != indexPath.section {
+				if indexPath < sourceIndexPath || sourceIndexPath.section != indexPath.section {
+					i -= 1
+				}
+				let node = nodes[nodes.index(nodes.startIndex, offsetBy: i)]
+				after = sequence(first: node) { $0.children.first?.cellIdentifier == nil ? $0.children.first : nil }.lazy.map{$0}.last ?? node
+			}
 		}
 		else {
 			guard let node = nodes.last else {return nil}
-			after = sequence(first: node) { $0.children?.first?.cellIdentifier == nil ? $0.children?.first : nil }.lazy.map{$0}.last ?? node
+			after = sequence(first: node) { $0.children.first?.cellIdentifier == nil ? $0.children.first : nil }.lazy.map{$0}.last ?? node
 		}
 
 		guard !after.isDescendant(of: src) else {return nil}
 		
 		if after.flags.contains(.isExpanded) && src.item.box.treeController(self, canMoveAt: src.index, inParent: src.parent?.item, to: 0, inParent: after.item) == true {
-			return MoveTarget(node: src, newParent: after, index: 0, indexPath: proposedDestinationIndexPath)
+			indexPath = after.indexPath
+			if after.cellIdentifier != nil {
+				indexPath.row += 1
+			}
+			if indexPath.section == sourceIndexPath.section && indexPath > sourceIndexPath {
+				indexPath.row -= 1
+			}
+			return MoveTarget(node: src, newParent: after, index: 0, indexPath: indexPath)
 		}
 		else {
 			let node = sequence(first: after) {$0.parent}.first { node in
@@ -713,7 +745,6 @@ extension TreeController {
 
 		return nil
 	}
-	
 }
 
 extension TreeController: UITableViewDataSource {
@@ -755,18 +786,18 @@ extension TreeController: UITableViewDataSource {
 		let n = node.numberOfChildren + (node.cellIdentifier == nil ? 0 : 1)
 
 		sequence(first: node, next: {$0.parent}).reversed().forEach { node in
-			node.parent?.children?[(node.index + 1)...].forEach {
+			node.parent?.children[(node.index + 1)...].forEach {
 				$0.offset -= n
 			}
 			node.parent?.numberOfChildren -= n
 		}
-		node.parent?.children?.remove(at: node.index)
-		node.parent?.children?[node.index...].forEach {$0.index -= 1}
+		node.parent?.children.remove(at: node.index)
+		node.parent?.children[node.index...].forEach {$0.index -= 1}
 		
-		target.newParent?.children?[target.index...].forEach {$0.index += 1}
+		target.newParent?.children[target.index...].forEach {$0.index += 1}
 		node.index = target.index
 		if let children = target.newParent?.children, children.count > target.index {
-			node.offset = target.newParent?.children?[target.index].offset ?? target.index
+			node.offset = children[target.index].offset
 		}
 		else if target.newParent != nil {
 			node.offset = 0
@@ -776,10 +807,10 @@ extension TreeController: UITableViewDataSource {
 		}
 		
 		node.parent = target.newParent
-		target.newParent?.children?.insert(node, at: target.index)
+		target.newParent?.children.insert(node, at: target.index)
 
 		sequence(first: node, next: {$0.parent}).reversed().forEach { node in
-			node.parent?.children?[(node.index + 1)...].forEach {
+			node.parent?.children[(node.index + 1)...].forEach {
 				$0.offset += n
 			}
 			node.parent?.numberOfChildren += n
@@ -798,12 +829,19 @@ extension TreeController: UITableViewDataSource {
 				self.flattened![destinationIndexPath.section].insert(contentsOf: children, at: destinationIndexPath.item + 1)
 				self.flattened![sourceIndexPath.section].removeSubrange(range)
 				
+				let dn = sourceIndexPath.section == destinationIndexPath.section ? 1 - children.count : 1
 				for (i, row) in range.enumerated() {
-					self.tableView?.moveRow(at: IndexPath(row: row, section: sourceIndexPath.section), to: IndexPath(row: destinationIndexPath.row + i + 1 - children.count, section: destinationIndexPath.section))
+					self.tableView?.moveRow(at: IndexPath(row: row, section: sourceIndexPath.section), to: IndexPath(row: destinationIndexPath.row + i + dn, section: destinationIndexPath.section))
 				}
 			}
 			else {
-				let range = (sourceIndexPath.item + 1)..<((sourceIndexPath.item + 1) + node.numberOfChildren)
+				let range: Range<Int>
+				if sourceIndexPath.section == destinationIndexPath.section {
+					range = (sourceIndexPath.item + 1)..<(sourceIndexPath.item + 1 + node.numberOfChildren)
+				}
+				else {
+					range = (sourceIndexPath.item)..<(sourceIndexPath.item + node.numberOfChildren)
+				}
 				let children = self.flattened![sourceIndexPath.section][range]
 				self.flattened![sourceIndexPath.section].removeSubrange(range)
 				self.flattened![destinationIndexPath.section].insert(contentsOf: children, at: destinationIndexPath.item + 1)
@@ -865,10 +903,9 @@ extension TreeController: UITableViewDelegate {
 
 	open func tableView(_ tableView: UITableView, targetIndexPathForMoveFromRowAt sourceIndexPath: IndexPath, toProposedIndexPath proposedDestinationIndexPath: IndexPath) -> IndexPath {
 		guard let target = moveTarget(fromRowAt: sourceIndexPath, toProposedIndexPath: proposedDestinationIndexPath) else {
-			print("fail", proposedDestinationIndexPath, sourceIndexPath)
 			return sourceIndexPath
 		}
-		print(proposedDestinationIndexPath, target.indexPath)
+
 		return target.indexPath
 	}
 }
@@ -1147,7 +1184,7 @@ extension TreeController {
 
 			let base: Any = node.item.box.unbox()
 			output.append("\(String.init(repeating: " ", count: level * 4))- \(node.indexPath):\(node.cellIdentifier == nil ? "" : "*") | \(node.numberOfChildren) \(type(of:base))")
-			node.children?.forEach {
+			node.children.forEach {
 				dumpItem($0)
 			}
 		}
