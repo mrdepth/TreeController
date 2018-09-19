@@ -132,7 +132,7 @@ extension UITableView {
 	open func performRowUpdates(diff: Diff, sectionBeforeUpdate: Int, sectionAfterUpdate: Int, with animation: TreeController.RowAnimation) {
 		insertRows(at: diff.insertions.map { IndexPath(row: $0, section: sectionAfterUpdate) }, with: animation.insertion)
 		deleteRows(at: diff.deletions.map { IndexPath(row: $0, section: sectionBeforeUpdate) }, with: animation.deletion)
-		reloadRows(at: diff.updates.map { IndexPath(row: $0.0, section: sectionBeforeUpdate) }, with: animation.update)
+//		reloadRows(at: diff.updates.map { IndexPath(row: $0.0, section: sectionBeforeUpdate) }, with: animation.update)
 		diff.moves.forEach {
 			moveRow(at: IndexPath(row: $0.0, section: sectionBeforeUpdate), to: IndexPath(row: $0.1, section: sectionAfterUpdate))
 		}
@@ -266,20 +266,30 @@ open class TreeController: NSObject {
 					}
 
 					DispatchQueue.main.async {
+						var reloadIndexPaths = [IndexPath]()
+						
 						self.tableView?.beginUpdates()
-						rowUpdates.forEach {
-							self.tableView?.performRowUpdates(diff: $0.0, sectionBeforeUpdate: $0.1, sectionAfterUpdate: $0.2, with: animation)
+						for (diff, before, after) in rowUpdates {
+							self.tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: before, sectionAfterUpdate: after, with: animation)
+							reloadIndexPaths.append(contentsOf: diff.updates.map { IndexPath(row: $0.1, section: after) })
 						}
 						self.tableView?.performSectionUpdates(diff: diff, with: animation)
 						self.sections = sections
 						self.flattened = flattened
 						self.nodes = nodes
 						self.tableView?.endUpdates()
+						
+						if !reloadIndexPaths.isEmpty {
+							self.tableView?.reloadRows(at: reloadIndexPaths, with: animation.update)
+						}
+						
 						completion?()
 					}
 				}
 			}
 			else {
+				var reloadIndexPaths = [IndexPath]()
+
 				tableView?.beginUpdates()
 				
 				let diff = Diff(oldSections?.map{$0.diffIdentifier} ?? [], sections.map{$0.diffIdentifier})
@@ -290,30 +300,23 @@ open class TreeController: NSObject {
 					}
 				}
 				
-//				var deletions = Set<AnyDiffIdentifier>()
-//				var insertions = Set<AnyDiffIdentifier>()
-				
 				for (i, j) in diff.indicesMap {
 					let old = oldFlattened?[i] ?? []
 					let new = flattened[j]
 					let diff = Diff(old, new)
 					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: i, sectionAfterUpdate: j, with: animation)
-//					diff.deletions.forEach {
-//						deletions.insert(AnyDiffIdentifier(old[$0].diffIdentifier))
-//					}
-//					diff.insertions.forEach {
-//						insertions.insert(AnyDiffIdentifier(new[$0].diffIdentifier))
-//					}
+					reloadIndexPaths.append(contentsOf: diff.updates.map { IndexPath(row: $0.1, section: j) })
 				}
-//				deletions.subtract(insertions)
-//				deletions.forEach {
-//					nodes[$0] = nil
-//				}
 				
 				tableView?.performSectionUpdates(diff: diff, with: animation)
 				self.sections = sections
 				self.flattened = flattened
 				tableView?.endUpdates()
+				
+				if !reloadIndexPaths.isEmpty {
+					self.tableView?.reloadRows(at: reloadIndexPaths, with: animation.update)
+				}
+
 				completion?()
 			}
 		}
@@ -385,17 +388,28 @@ open class TreeController: NSObject {
 						diff.shift(by: range.lowerBound)
 						
 						DispatchQueue.main.async {
+							let reloadIndexPaths = diff.updates.map { IndexPath(row: $0.1, section: node.section) }
+
 							self.tableView?.beginUpdates()
 							self.tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
 							self.flattened?[node.section].replaceSubrange(range, with: flattened)
 							self.tableView?.endUpdates()
+							
+							if !reloadIndexPaths.isEmpty {
+								self.tableView?.reloadRows(at: reloadIndexPaths, with: animation.update)
+							}
+
 							completion?()
 						}
+						
+
 					}
 				}
 				else {
 					tableView?.beginUpdates()
 					var diff = Diff(oldFlattened, flattened)
+					let reloadIndexPaths = diff.updates.map { IndexPath(row: $0.1, section: node.section) }
+
 					diff.shift(by: range.lowerBound)
 					tableView?.performRowUpdates(diff: diff, sectionBeforeUpdate: node.section, sectionAfterUpdate: node.section, with: animation)
 					if range.isEmpty {
@@ -405,6 +419,11 @@ open class TreeController: NSObject {
 						self.flattened?[node.section].replaceSubrange(range, with: flattened)
 					}
 					tableView?.endUpdates()
+					
+					if !reloadIndexPaths.isEmpty {
+						self.tableView?.reloadRows(at: reloadIndexPaths, with: animation.update)
+					}
+
 					completion?()
 				}
 			}
@@ -626,6 +645,7 @@ extension TreeController {
 	}
 	
 	private func handleRowSelection(for item: AnyTreeItem, at indexPath: IndexPath) {
+		guard tableView?.isEditing == false else {return}
 		let node = nodes[AnyDiffIdentifier(item.diffIdentifier)]!.base!
 		if node.flags.contains(.isExpandable) {
 			if node.flags.contains(.isExpanded) {
