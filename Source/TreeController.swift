@@ -437,6 +437,9 @@ open class TreeController: NSObject {
 	
 	open func reloadRow<T: TreeItem>(for item: T, with animation: UITableView.RowAnimation) {
 		guard let indexPath = indexPath(for: item) else {return}
+		let node = self.node(for: item)
+		node.cellIdentifier = node.item.box.cellIdentifier(self)
+		
 		tableView?.reloadRows(at: [indexPath], with: animation)
 	}
 	
@@ -484,7 +487,7 @@ extension TreeController {
 			static let isExpanded = Flags(rawValue: 1 << 1)
 		}
 		
-		let cellIdentifier: String?
+		var cellIdentifier: String?
 		var flags: Flags
 		var estimatedRowHeight: CGFloat?
 
