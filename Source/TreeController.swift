@@ -547,9 +547,9 @@ extension TreeController {
 				}
 				return _numberOfChildren!
 			}
-			set {
-				_numberOfChildren = newValue
-			}
+//			set {
+//				_numberOfChildren = newValue
+//			}
 		}
 
 		var _section: Int?
@@ -664,7 +664,7 @@ extension TreeController {
 				}
 
 				sequence(first: node, next: {$0.parent}).forEach { i in
-					i.numberOfChildren -= n
+					i._numberOfChildren = i._numberOfChildren.map{$0 - n}
 				}
 
 				
@@ -687,7 +687,7 @@ extension TreeController {
 				}
 
 				sequence(first: node, next: {$0.parent}).forEach { i in
-					i.numberOfChildren += n
+					i._numberOfChildren = i._numberOfChildren.map{$0 + n}
 				}
 				
 				tableView?.insertRows(at: range.dropFirst().map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
@@ -812,7 +812,7 @@ extension TreeController: UITableViewDataSource {
 			node.parent?.children[(node.index + 1)...].forEach {
 				$0.offset -= n
 			}
-			node.parent?.numberOfChildren -= n
+			node.parent?._numberOfChildren = (node.parent?._numberOfChildren).map {$0 - n}
 		}
 		node.parent?.children.remove(at: node.index)
 		node.parent?.children[node.index...].forEach {$0.index -= 1}
@@ -836,7 +836,7 @@ extension TreeController: UITableViewDataSource {
 			node.parent?.children[(node.index + 1)...].forEach {
 				$0.offset += n
 			}
-			node.parent?.numberOfChildren += n
+			node.parent?._numberOfChildren = (node.parent?._numberOfChildren).map {$0 + n}
 		}
 
 		

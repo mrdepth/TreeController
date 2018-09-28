@@ -203,6 +203,36 @@ class TreeControllerTests: XCTestCase {
 		wait(for: [exp], timeout: 10)
 	}
 	
+	func testExpand1() {
+		let exp = expectation(description: "end")
+		
+		let vc = TreeViewController(style: .plain)
+		vc.canMove = { (oldParent, newParent) in
+			return newParent?.text.count == 8 || newParent?.text == "A1_1"
+		}
+		vc.loadViewIfNeeded()
+		
+		let data = [Item("A", [Item("A1"), Item("A2"), Item("A3")], "Cell", false),
+					Item("B", [Item("B1")])]
+		
+		vc.treeController.reloadData(data, with: .none)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B", "B1"])
+		
+		vc.treeController.tableView(vc.tableView, didSelectRowAt: IndexPath(row: 0, section: 0))
+		
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A2", "A3", "B", "B1"])
+			vc.treeController.tableView(vc.tableView, didSelectRowAt: IndexPath(row: 0, section: 0))
+
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "B", "B1"])
+				exp.fulfill()
+			}
+		}
+		
+		wait(for: [exp], timeout: 10)
+	}
+	
     func testPerformanceExample() {
         // This is an example of a performance test case.
         self.measure {
@@ -215,12 +245,14 @@ struct Item: TreeItem, CustomStringConvertible {
 	var text: String
 	var children: [Item]?
 	var cellIdentifier: String?
+	var isExpanded: Bool
 	
-	init(_ text: String, _ children: [Item]? = nil, _ cellIdentifier: String? = "Cell") {
+	init(_ text: String, _ children: [Item]? = nil, _ cellIdentifier: String? = "Cell", _ isExpanded: Bool = true) {
 		self.text = text
 		self.children = children
 		self.cellIdentifier = cellIdentifier
 		self.diffIdentifier = text
+		self.isExpanded = isExpanded
 	}
 	
 	var diffIdentifier: String
@@ -243,6 +275,10 @@ class TreeViewController: UITableViewController {
 	}
 }
 
+protocol Expandable {
+	var isExpanded: Bool {get}
+}
+
 extension TreeViewController: TreeControllerDelegate {
 	func treeController<T>(_ treeController: TreeController, cellIdentifierFor item: T) -> String? where T : TreeItem {
 		return (item as? Item)?.cellIdentifier
@@ -257,7 +293,7 @@ extension TreeViewController: TreeControllerDelegate {
 	}
 	
 	func treeController<T>(_ treeController: TreeController, isExpanded item: T) -> Bool where T : TreeItem {
-		return true
+		return (item as? Item)?.isExpanded ?? true
 	}
 	
 	func treeController<T>(_ treeController: TreeController, didSelectRowFor item: T) where T : TreeItem {
