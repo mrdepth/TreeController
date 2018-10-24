@@ -652,23 +652,26 @@ extension TreeController {
 		let node = nodes[AnyDiffIdentifier(item.diffIdentifier)]!.base!
 		if node.flags.contains(.isExpandable) {
 			if node.flags.contains(.isExpanded) {
-				let range = (indexPath.item + 1)...(indexPath.item + node.numberOfChildren)
+				let range = (indexPath.item + 1)..<(indexPath.item + 1 + node.numberOfChildren)
 				flattened?[indexPath.section].removeSubrange(range)
 				node.flags.remove(.isExpanded)
-				
-				let n = range.count
-				if let parent = node.parent {
-					parent.children[(node.index + 1)...].forEach {
-						$0.offset -= n
+
+				if !range.isEmpty {
+					let n = range.count
+					if let parent = node.parent {
+						parent.children[(node.index + 1)...].forEach {
+							$0.offset -= n
+						}
 					}
+					
+					sequence(first: node, next: {$0.parent}).forEach { i in
+						i._numberOfChildren = i._numberOfChildren.map{$0 - n}
+					}
+					
+					
+					tableView?.deleteRows(at: range.map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
 				}
 
-				sequence(first: node, next: {$0.parent}).forEach { i in
-					i._numberOfChildren = i._numberOfChildren.map{$0 - n}
-				}
-
-				
-				tableView?.deleteRows(at: range.map{IndexPath(row: $0, section: indexPath.section)}, with: .fade)
 				item.box.treeControllerDidCollapseItem(self)
 			}
 			else {
