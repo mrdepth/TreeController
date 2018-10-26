@@ -211,6 +211,7 @@ open class TreeController: NSObject {
 		
 		let sections = data.enumerated().map { (i, item) -> Node in
 			let node = self.node(for: item)
+			node.item = AnyTreeItem(item)
 			node.section = i
 			return node
 		}
@@ -337,11 +338,11 @@ open class TreeController: NSObject {
 			reloadData(from: item, options: options, with: animation, completion: completion)
 		}
 		else {
+			
 			guard self.flattened != nil, let node = self.nodes[AnyDiffIdentifier(item.diffIdentifier)]?.base else {
 				completion?()
 				return
 			}
-			
 			
 			let indexPath = node.indexPath
 			let range = node.cellIdentifier == nil ?
@@ -438,6 +439,7 @@ open class TreeController: NSObject {
 	open func reloadRow<T: TreeItem>(for item: T, with animation: UITableView.RowAnimation) {
 		guard let indexPath = indexPath(for: item) else {return}
 		let node = self.node(for: item)
+//		node.item = AnyTreeItem(item)
 		node.cellIdentifier = node.item.box.cellIdentifier(self)
 		
 		tableView?.reloadRows(at: [indexPath], with: animation)
@@ -494,6 +496,7 @@ extension TreeController {
 		weak var parent: Node?
 		
 		private var _children: [Node]?
+//		private var _childrenExtendLifetime: [Node]?
 		
 		var children: [Node]  {
 			get {
@@ -514,6 +517,7 @@ extension TreeController {
 						}
 						return child
 					} ?? []
+//					_childrenExtendLifetime = nil
 				}
 				return _children!
 			}
@@ -577,6 +581,9 @@ extension TreeController {
 		
 		var item: AnyTreeItem {
 			didSet {
+//				if _children != nil {
+//					_childrenExtendLifetime = _children
+//				}
 				_children = nil
 				_numberOfChildren = nil
 			}
@@ -626,7 +633,7 @@ extension TreeController {
 	
 	fileprivate func node<T: TreeItem>(for item: T) -> Node {
 		if let node = nodes[AnyDiffIdentifier(item.diffIdentifier)]?.base {
-			node.item = AnyTreeItem(item)
+//			node.item = AnyTreeItem(item)
 			return node
 		}
 		else {
