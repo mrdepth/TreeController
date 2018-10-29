@@ -371,7 +371,6 @@ open class TreeController: NSObject {
 
 					}
 				}
-				
 			}
 
 			
@@ -496,28 +495,31 @@ extension TreeController {
 		weak var parent: Node?
 		
 		private var _children: [Node]?
-//		private var _childrenExtendLifetime: [Node]?
+		
+		private func getChildren() -> [Node] {
+			var i: Int = 0
+			var j: Int = 0
+			return item.children?.map {
+				let child = $0.box.node(treeController: treeController)
+				child.item = $0
+				child.offset = i
+				child.index = j
+				j += 1
+				child.parent = self
+				if child.cellIdentifier != nil {
+					i += 1
+				}
+				if child.flags.contains(.isExpanded) {
+					i += child.numberOfChildren
+				}
+				return child
+			} ?? []
+		}
 		
 		var children: [Node]  {
 			get {
 				if _children == nil {
-					var i: Int = 0
-					var j: Int = 0
-					_children = item.children?.map {
-						let child = $0.box.node(treeController: treeController)
-						child.offset = i
-						child.index = j
-						j += 1
-						child.parent = self
-						if child.cellIdentifier != nil {
-							i += 1
-						}
-						if child.flags.contains(.isExpanded) {
-							i += child.numberOfChildren
-						}
-						return child
-					} ?? []
-//					_childrenExtendLifetime = nil
+					_children = getChildren()
 				}
 				return _children!
 			}
@@ -539,21 +541,22 @@ extension TreeController {
 		
 		fileprivate var _numberOfChildren: Int?
 		
+		private func getNumberOfChildren() -> Int {
+			if cellIdentifier == nil || flags.contains(.isExpanded) {
+				return children.reduce(0, {$0 + $1.numberOfChildren + ($1.cellIdentifier == nil ? 0 : 1)})
+			}
+			else {
+				return 0
+			}
+		}
+		
 		var numberOfChildren: Int {
 			get {
 				if _numberOfChildren == nil {
-					if cellIdentifier == nil || flags.contains(.isExpanded) {
-						_numberOfChildren = children.reduce(0, {$0 + $1.numberOfChildren + ($1.cellIdentifier == nil ? 0 : 1)})
-					}
-					else {
-						_numberOfChildren = 0
-					}
+					_numberOfChildren = getNumberOfChildren()
 				}
 				return _numberOfChildren!
 			}
-//			set {
-//				_numberOfChildren = newValue
-//			}
 		}
 
 		var _section: Int?
@@ -581,10 +584,11 @@ extension TreeController {
 		
 		var item: AnyTreeItem {
 			didSet {
-//				if _children != nil {
-//					_childrenExtendLifetime = _children
-//				}
-				_children = nil
+				if _children != nil {
+					withExtendedLifetime(_children) {
+						_children = getChildren()
+					}
+				}
 				_numberOfChildren = nil
 			}
 		}

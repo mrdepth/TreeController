@@ -233,6 +233,36 @@ class TreeControllerTests: XCTestCase {
 		wait(for: [exp], timeout: 10)
 	}
 	
+	func testExpand2() {
+		let exp = expectation(description: "end")
+		
+		let vc = TreeViewController(style: .plain)
+		vc.canMove = { (oldParent, newParent) in
+			return newParent?.text.count == 8 || newParent?.text == "A1_1"
+		}
+		vc.loadViewIfNeeded()
+		
+		let data = [Item("A", [Item("A1", [Item("A1_1")], "Cell", true), Item("A2", [Item("A2_1")], "Cell", false)])]
+		
+		vc.treeController.reloadData(data, with: .none)
+		XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A2"])
+		
+		vc.treeController.tableView(vc.tableView, didSelectRowAt: IndexPath(row: 3, section: 0))
+		
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A2", "A2_1"])
+			
+			vc.treeController.update(contentsOf: data[0])
+			
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				XCTAssertEqual(vc.tableView.indexPathsForVisibleRows?.sorted().map{vc.tableView.cellForRow(at: $0)}.compactMap{$0?.textLabel?.text}, ["A", "A1", "A1_1", "A2", "A2_1"])
+				exp.fulfill()
+			}
+		}
+		
+		wait(for: [exp], timeout: 10)
+	}
+	
     func testPerformanceExample() {
         // This is an example of a performance test case.
         self.measure {
@@ -256,6 +286,14 @@ struct Item: TreeItem, CustomStringConvertible {
 	}
 	
 	var diffIdentifier: String
+	
+	static func == (lhs: Item, rhs: Item) -> Bool {
+		return lhs.text == rhs.text && lhs.children == rhs.children
+	}
+	
+	var hashValue: Int {
+		return text.hashValue
+	}
 	
 	var description: String {
 		return text
