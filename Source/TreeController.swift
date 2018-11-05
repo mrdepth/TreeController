@@ -899,8 +899,8 @@ extension TreeController: UITableViewDelegate {
 	
 	open func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 		let node = self.node(at: indexPath)
-		node.item.box.treeControllerDidSelectRow(self)
 		handleRowSelection(for: node.item, at: indexPath)
+		node.item.box.treeControllerDidSelectRow(self)
 	}
 	
 	open func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
