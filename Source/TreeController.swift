@@ -81,9 +81,9 @@ public struct AnyTreeItem: TreeItem {
 		return lhs.box.isEqual(rhs.box)
 	}
 	
-//	public var base: Any {
-//		return box.unbox()
-//	}
+	public var base: Any {
+		return box.unbox()
+	}
 	
 }
 
