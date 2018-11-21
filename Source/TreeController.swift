@@ -212,6 +212,7 @@ open class TreeController: NSObject {
 		let sections = data.enumerated().map { (i, item) -> Node in
 			let node = self.node(for: item)
 			node.item = AnyTreeItem(item)
+			node.cellIdentifier = node.item.box.cellIdentifier(self)
 			node.section = i
 			return node
 		}
@@ -350,6 +351,7 @@ open class TreeController: NSObject {
 				(indexPath.item)..<(indexPath.item + 1 + node.numberOfChildren)
 
 			node.item = AnyTreeItem(item)
+			node.cellIdentifier = node.item.box.cellIdentifier(self)
 			
 			let noAnimation = animation == .none
 			
@@ -438,7 +440,6 @@ open class TreeController: NSObject {
 	open func reloadRow<T: TreeItem>(for item: T, with animation: UITableView.RowAnimation) {
 		guard let indexPath = indexPath(for: item) else {return}
 		let node = self.node(for: item)
-//		node.item = AnyTreeItem(item)
 		node.cellIdentifier = node.item.box.cellIdentifier(self)
 		
 		tableView?.reloadRows(at: [indexPath], with: animation)
@@ -637,7 +638,6 @@ extension TreeController {
 	
 	fileprivate func node<T: TreeItem>(for item: T) -> Node {
 		if let node = nodes[AnyDiffIdentifier(item.diffIdentifier)]?.base {
-//			node.item = AnyTreeItem(item)
 			return node
 		}
 		else {
