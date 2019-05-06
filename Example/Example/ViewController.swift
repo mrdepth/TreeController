@@ -18,9 +18,11 @@ struct Country: Hashable, TreeItem {
 		typealias Child = String
 		var name: String
 		var children: [String]?
-		var hashValue: Int {
-			return name.hashValue
+		
+		func hash(into hasher: inout Hasher) {
+			hasher.combine(name)
 		}
+
 		var diffIdentifier: String {
 			return "r:" + name
 		}
@@ -34,9 +36,11 @@ struct Country: Hashable, TreeItem {
 	var name: String
 	var description: String = ""
 	var children: [Region]?
-	var hashValue: Int {
-		return name.hashValue
+	
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(name)
 	}
+
 	var diffIdentifier: String {
 		return "c:" + name
 	}

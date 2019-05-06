@@ -25,11 +25,11 @@ struct AnyDiffIdentifier: Hashable {
 			return type(of:$0.base) == AnyHashable.self ? $0.base as? AnyHashable : nil
 		}.map{$0}.last ?? base
 	}
-
-	var hashValue: Int {
-		return base.hashValue
+	
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(base)
 	}
-
+	
 	static func== (lhs: AnyDiffIdentifier, rhs: AnyDiffIdentifier) -> Bool {
 		return lhs.base == rhs.base
 	}
@@ -42,7 +42,10 @@ public protocol TreeItem: Hashable, Diffable {
 
 public struct TreeItemNull: TreeItem {
 	public var children: [TreeItemNull]? { return nil }
-	public var hashValue: Int { return 0 }
+	public func hash(into hasher: inout Hasher) {
+		hasher.combine(NSNull())
+	}
+
 }
 
 public extension TreeItem where Child == TreeItemNull {
@@ -56,8 +59,8 @@ public struct AnyTreeItem: TreeItem {
 		return box.children
 	}
 	
-	public var hashValue: Int {
-		return box.hashValue
+	public func hash(into hasher: inout Hasher) {
+		box.hash(into: &hasher)
 	}
 	
 	public var diffIdentifier: AnyHashable {
@@ -1010,7 +1013,7 @@ fileprivate protocol TreeItemBox {
 	func unbox() -> Any
 	var children: [AnyTreeItem]? {get}
 	
-	var hashValue: Int {get}
+	func hash(into hasher: inout Hasher) -> Void
 	var diffIdentifier: AnyHashable {get}
 	func isEqual(_ other: TreeItemBox) -> Bool
 	func isEqual<T: TreeItem>(_ other: T) -> Bool
@@ -1054,8 +1057,8 @@ fileprivate struct ConcreteTreeItemBox<Base: TreeItem>: TreeItemBox {
 		return base
 	}
 	
-	var hashValue: Int {
-		return base.hashValue
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(base)
 	}
 	
 	var diffIdentifier: AnyHashable {

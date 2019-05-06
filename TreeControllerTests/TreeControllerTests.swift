@@ -291,8 +291,8 @@ struct Item: TreeItem, CustomStringConvertible {
 		return lhs.text == rhs.text && lhs.children == rhs.children
 	}
 	
-	var hashValue: Int {
-		return text.hashValue
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(text)
 	}
 	
 	var description: String {
