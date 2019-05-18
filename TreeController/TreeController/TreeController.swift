@@ -893,7 +893,7 @@ class FetchedResultsSectionNode<ResultType: NSFetchRequestResult> : TreeNode {
 		children = section.objects?.compactMap {objectNode.init(object: $0 as! ResultType)} ?? []
 	}
 	
-	override var hashValue: Int {
+	override var hash: Int {
 		return section.name.hashValue ^ section.numberOfObjects.hashValue
 	}
 	
@@ -910,7 +910,7 @@ class FetchedResultsObjectNode<ResultType: NSFetchRequestResult>: TreeNode {
 		super.init()
 	}
 	
-	override var hashValue: Int {
+	override var hash: Int {
 		return object.hash
 	}
 	
